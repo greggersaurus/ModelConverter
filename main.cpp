@@ -1,4 +1,5 @@
 /**
+ * \file main.cpp
  * \brief Entry point for 3D Model Converter command line application.
  * \author Gregory Gluszek.
  */
@@ -8,6 +9,8 @@
 #include <stdlib.h>
 #include <string>
 #include <getopt.h>
+
+#include "modelconv.h"
 
 /**
  * Print application usage to stderr.
@@ -31,8 +34,9 @@ void print_usage(const char* apExeName)
  */
 int main(int argc, char* argv[])
 {
-
+	int retval = -1;
 	std::string input_file = "";
+	tcModelConv* model_conv = NULL; 
 
 	// For command line arg parsing
 	int opt;
@@ -50,7 +54,7 @@ int main(int argc, char* argv[])
 		switch (opt) {
 			case 'i':
 				input_file = optarg;
-				printf("Input Dir = %s\n", input_file.c_str());
+				printf("Input File = %s\n", input_file.c_str());
 				break;
 
 			case 'h':
@@ -67,5 +71,23 @@ int main(int argc, char* argv[])
 
 	printf("Hello Wurld\n");
 
-	return EXIT_SUCCESS;
+	// Create class to process 3D model data
+	model_conv = new tcModelConv();
+	if (!model_conv)
+	{
+		fprintf(stderr, "Failed to allocate memory for model_conv. "
+			"Exiting.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	// Import data from specified file
+	retval = model_conv->importModel(input_file.c_str());	
+	if (retval)
+	{
+		fprintf(stderr, "Failed to import model data from file \"%s\". "
+			"Exiting.\n", input_file.c_str());
+		exit(EXIT_FAILURE);
+	}
+
+	exit(EXIT_SUCCESS);
 }

@@ -15,7 +15,8 @@ LDFLAGS =
 CFLAGS = -g -c -Wall -Wconversion $(INCLUDES) -std=gnu++0x
 
 # Project source files
-SOURCES = main.cpp
+SOURCES = modelconv.cpp \
+	main.cpp
 
 OBJECTS = $(SOURCES:.cpp=.o)
 EXECUTABLE = mdlconv
