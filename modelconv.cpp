@@ -163,22 +163,51 @@ int tcModelConv::importModel(const char* apFilename)
 		return -1;
 	}
 
-//TODO: debug. Maybe turn this into a function, or break into functions for printing vertices, etc.?
+
+//TODO: debug. 
 	printf("%u unique vertices found amongst %u triangles.\n", 
 		mnNumVerticies, mnNumTriangles);
 
 	for (int cnt = 0; cnt < mnNumTriangles; cnt++)		
 	{
 		printf("Triangle %u:\n", cnt);
-		printf("\tNormal Vec: %f %f %f\n", mpTriangles[cnt].msNormal.i, mpTriangles[cnt].msNormal.j, mpTriangles[cnt].msNormal.k);
-		printf("\tVertex 1: %f %f %f\n", mpTriangles[cnt].mpVertex1->x, mpTriangles[cnt].mpVertex1->y, mpTriangles[cnt].mpVertex1->z);
-		printf("\tVertex 2: %f %f %f\n", mpTriangles[cnt].mpVertex2->x, mpTriangles[cnt].mpVertex2->y, mpTriangles[cnt].mpVertex2->z);
-		printf("\tVertex 3: %f %f %f\n", mpTriangles[cnt].mpVertex3->x, mpTriangles[cnt].mpVertex3->y, mpTriangles[cnt].mpVertex3->z);
+		printf("%s\n", to_string(&mpTriangles[cnt]).c_str());
 	}
 
 //TODO: Creat faces, where each trianlge is a face at this point?
 
 	return 0;
+}
+
+/**
+ * \return The string representation of a tsNormal vector.
+ */
+std::string tcModelConv::to_string(const tsNormal* apNormal)
+{
+	return "i = " + std::to_string(apNormal->i) + 
+		" j = " + std::to_string(apNormal->j) + 
+		" k = " + std::to_string(apNormal->k);	
+}
+
+/**
+ * \return The string representation of a tsVertex vector.
+ */
+std::string tcModelConv::to_string(const tsVertex* apVertex)
+{
+	return "x = " + std::to_string(apVertex->x) + 
+		" y = " + std::to_string(apVertex->y) + 
+		" z = " + std::to_string(apVertex->z);	
+}
+
+/**
+ * \return The string representation of a tsTriangle vector.
+ */
+std::string tcModelConv::to_string(const tsTriangle* apTriangle)
+{
+	return "Normal: " + to_string(&apTriangle->msNormal) + "\n" + 
+		"Vertex 1: " + to_string(apTriangle->mpVertex1) + "\n" + 
+		"Vertex 2: " + to_string(apTriangle->mpVertex2) + "\n" + 
+		"Vertex 3: " + to_string(apTriangle->mpVertex3);
 }
 
 /**

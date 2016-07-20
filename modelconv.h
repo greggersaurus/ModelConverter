@@ -8,6 +8,7 @@
 #define _MODEL_CONV_
 
 #include <stdint.h>
+#include <string>
 
 class tcModelConv
 {
@@ -60,6 +61,10 @@ protected:
 		tsVertex* mpVertex2;
 		tsVertex* mpVertex3;
 	};
+
+	std::string to_string(const tsNormal* apNormal);
+	std::string to_string(const tsVertex* apVertex);
+	std::string to_string(const tsTriangle* apTriangle);
 
 	tsVertex* addVertex(const tsVertex* apVertex);
 
