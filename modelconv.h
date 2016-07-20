@@ -19,7 +19,9 @@ public:
 
 	int createFaces(float anThreshold);
 
-	int exportSvg(const char* apOutputDir);
+	int exportBinStl(const char* apFilename);
+
+	int exportSvg(const char* apFilename);
 
 protected:
 
@@ -36,6 +38,20 @@ protected:
 		float y;
 		float z;
 	};
+
+	// Since this struct is used to read from a packed file, we need to
+	//  compress data to match
+	#pragma pack(push, 1)
+	struct tsBinStlTriangle
+	{
+		tsNormal msNormal; //!< Normal vector of triangle.
+		tsVertex msVertex1; //!< First vertex of triangle (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
+		tsVertex msVertex2;
+		tsVertex msVertex3;
+		uint16_t mnAttrByteCnt; //!< Attribute byte count. Unused.
+	};
+	#pragma pack(pop)
+	// Back to default packing for everything else
 
 	struct tsTriangle
 	{
@@ -54,6 +70,7 @@ protected:
 		//!< separating connected triangles.
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
+
 	uint32_t mnNumTriangles; //!< Number of elements in mpTriangles.
 	tsTriangle* mpTriangles; //!< Trianlges that define imported object.
 };

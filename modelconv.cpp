@@ -52,16 +52,6 @@ int tcModelConv::importModel(const char* apFilename)
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
-	#pragma pack(1)
-	struct tsBinStlTriangle
-	{
-		tsNormal msNormal; //!< Normal vector of triangle.
-		tsVertex msVertex1; //!< First vertex of triangle (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
-		tsVertex msVertex2;
-		tsVertex msVertex3;
-		uint16_t mnAttrByteCnt; //!< Attribute byte count. Unused.
-	};
-
 	tsBinStlTriangle bin_stl_triangle;
 
 	// Open file for reading
@@ -166,6 +156,12 @@ int tcModelConv::importModel(const char* apFilename)
 		}
 	}
 
+	if (fclose(file))
+	{
+		fprintf(stderr, "Failed to close file \"%s\" after reading "
+			"data.\n", apFilename);
+		return -1;
+	}
 
 //TODO: debug. Maybe turn this into a function, or break into functions for printing vertices, etc.?
 	printf("%u unique vertices found amongst %u triangles.\n", 
@@ -248,13 +244,90 @@ int tcModelConv::createFaces(float anThreshold)
 }
 
 /**
- * Output SVG with 
+ * Export model data to STL file format with binary data.
  *
- * \param[in] apOutputDir 
+ * \param[in] apFilename Filename to write STL data to.
  *
  * \return 0 on success.
  */
-int tcModelConv::exportSvg(const char* apOutputDir)
+int tcModelConv::exportBinStl(const char* apFilename)
+{
+	FILE* file = NULL;
+	// Number of elements written by fwrite
+	size_t elem_wr = 0;
+	tsBinStlTriangle bin_stl_triangle;
+
+	file = fopen(apFilename, "w");
+	if (!file)
+	{
+		fprintf(stderr, "Failed to open file \"%s\" for writing.\n",
+			apFilename);
+		return -1;
+	}
+
+	// Write header data
+	elem_wr = fwrite(maBinStlHeader, sizeof(maBinStlHeader[0]),
+		ARRAY_SIZE(maBinStlHeader), file);
+	if (ARRAY_SIZE(maBinStlHeader) != elem_wr)
+	{
+		fprintf(stderr, "Only wrote %lu of %lu bytes from "
+			"maBinStlHeader to file \"%s\"\n", elem_wr, 
+			ARRAY_SIZE(maBinStlHeader), apFilename);
+		return -1;
+	}
+
+	// Write number of triangle
+	elem_wr = fwrite(&mnNumTriangles, 1, sizeof(mnNumTriangles), file);
+	if (sizeof(mnNumTriangles) != elem_wr)
+	{
+		fprintf(stderr, "Only wrote %lu of %lu bytes from "
+			"mnNumTriangles to file \"%s\"\n", elem_wr, 
+			sizeof(mnNumTriangles), apFilename);
+		return -1;
+	}
+
+	// Write triangle data
+	for (uint32_t cnt = 0; cnt < mnNumTriangles; cnt++)
+	{
+		// Copy trianlge data to struct for writing
+		bin_stl_triangle.msNormal = mpTriangles[cnt].msNormal;
+		bin_stl_triangle.msVertex1 = *(mpTriangles[cnt].mpVertex1);
+		bin_stl_triangle.msVertex2 = *(mpTriangles[cnt].mpVertex2);
+		bin_stl_triangle.msVertex3 = *(mpTriangles[cnt].mpVertex3);
+		bin_stl_triangle.mnAttrByteCnt = 0;
+
+		// Write triangle data to file
+		elem_wr = fwrite(&bin_stl_triangle, 1, sizeof(bin_stl_triangle),
+			file);
+		if (sizeof(bin_stl_triangle) != elem_wr)
+		{
+			fprintf(stderr, "Only wrote %lu of %lu bytes from "
+				"%u of %u triangle to file \"%s\"\n", elem_wr, 
+				sizeof(bin_stl_triangle), cnt, mnNumTriangles,
+				apFilename);
+			return -1;
+		}
+		
+	}
+
+	if (fclose(file))
+	{
+		fprintf(stderr, "Failed to close file \"%s\" after writing "
+			"data.\n", apFilename);
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Output Scalable Vector Graphs with each face as an outlined object.
+ *
+ * \param[in] apFilename Filename to write SVG data to.
+ *
+ * \return 0 on success.
+ */
+int tcModelConv::exportSvg(const char* apFilename)
 {
 //TODO: what if there are no faces created, or will they be created as soon as data is imported??
 

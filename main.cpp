@@ -89,5 +89,13 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
+	retval = model_conv->exportBinStl("test.stl");
+	if (retval)
+	{
+		fprintf(stderr, "Failed to export model data to file. "
+			"Exiting.\n");
+		exit(EXIT_FAILURE);
+	}
+
 	exit(EXIT_SUCCESS);
 }
