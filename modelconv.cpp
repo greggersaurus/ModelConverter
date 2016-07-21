@@ -34,6 +34,7 @@ tcModelConv::~tcModelConv()
  *
  * \return 0 on success.
  */
+//TODO: move this into constructor instead of separate function?
 int tcModelConv::importModel(const char* apFilename)
 {
 	FILE* file = NULL;
@@ -79,13 +80,19 @@ int tcModelConv::importModel(const char* apFilename)
 	mcVertices.clear();
 	// If object is closed, there will be at one vertex per triangle. 
 	//  Start off with vector of this size to minimize dynamic resizing.
+//TODO: or should we assume largest possible and spend more memory in threat of wasting time reallocating? Or do we want this optimized for closed objects?
 	mcVertices.reserve(num_triangles);
 
 	// Clean up triangle storage memory
 	mcTriangles.clear();
 	// We know how many triangle there are and this should make sure
 	//  we do not need to reszie vector while importing data
+//TODO: test that this is saving us time in construction with timers?
 	mcTriangles.reserve(num_triangles);
+
+	// Clean up face storage memory
+	mcFaces.clear();
+//TODO: any assumptions about how many faces the object might have?
 	
 	// Read the triangle data from the STL file
 	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
@@ -106,35 +113,9 @@ int tcModelConv::importModel(const char* apFilename)
 
 		// (Potentially) add vertex data to array and get pointer
 		//  to vertx data in mpVertices
-		triangle.mpVertex1 = 
-			addVertex(bin_stl_triangle.msVertex1);
-		if (!triangle.mpVertex1)
-		{
-			fprintf(stderr, "Could not add Vertex 1 of "
-				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, num_triangles, apFilename);
-			return -1;
-		}
-
-		triangle.mpVertex2 = 
-			addVertex(bin_stl_triangle.msVertex2);
-		if (!triangle.mpVertex2)
-		{
-			fprintf(stderr, "Could not add Vertex 2 of "
-				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, num_triangles, apFilename);
-			return -1;
-		}
-
-		triangle.mpVertex3 = 
-			addVertex(bin_stl_triangle.msVertex3);
-		if (!triangle.mpVertex3)
-		{
-			fprintf(stderr, "Could not add Vertex 3 of "
-				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, num_triangles, apFilename);
-			return -1;
-		}
+		triangle.mpVertex1 = &addVertex(bin_stl_triangle.msVertex1);
+		triangle.mpVertex2 = &addVertex(bin_stl_triangle.msVertex2);
+		triangle.mpVertex3 = &addVertex(bin_stl_triangle.msVertex3);
 
 		// Add new triangle to vector
 		mcTriangles.push_back(triangle); 
@@ -164,7 +145,7 @@ int tcModelConv::importModel(const char* apFilename)
 }
 
 /**
- * \return The string representation of a tsNormal vector.
+ * \return The string representation of a tsNormal.
  */
 std::string tcModelConv::to_string(const tsNormal& arNormal)
 {
@@ -174,7 +155,7 @@ std::string tcModelConv::to_string(const tsNormal& arNormal)
 }
 
 /**
- * \return The string representation of a tsVertex vector.
+ * \return The string representation of a tsVertex.
  */
 std::string tcModelConv::to_string(const tsVertex& arVertex)
 {
@@ -184,7 +165,7 @@ std::string tcModelConv::to_string(const tsVertex& arVertex)
 }
 
 /**
- * \return The string representation of a tsTriangle vector.
+ * \return The string representation of a tsTriangle.
  */
 std::string tcModelConv::to_string(const tsTriangle& arTriangle)
 {
@@ -195,14 +176,22 @@ std::string tcModelConv::to_string(const tsTriangle& arTriangle)
 }
 
 /**
+ * \return The string representation of a tsFace.
+ */
+std::string tcModelConv::to_string(const tsFace& apFace)
+{
+	return "TBD";
+}
+
+/**
  * Add the given vertex data to mpVertices and return a pointer to that vertex.
  *  If the vertex data already exists in mpVertices, just return a pointer.
  *
  * \param[in] arVertex Vertex data to be copied into element in 
  *
- * \return Pointer to vertex data in mpVertices, or NULL on error.
+ * \return Reference to vertex data in mcVertices.
  */
-tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex& arVertex)
+tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
 {
 	// Search to see if vertex already exists in vector
 	for (std::vector<tsVertex>::iterator it = mcVertices.begin();
@@ -212,7 +201,7 @@ tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex& arVertex)
 		if (arVertex.x == it->x && arVertex.y == it->y && 
 			arVertex.z == it->z)
 		{
-			return &(*it);
+			return *it;
 		}
 	}
 
@@ -221,7 +210,7 @@ tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex& arVertex)
 	mcVertices.push_back(arVertex);
 
 	// Return pointer to newly added element
-	return &(mcVertices.back());
+	return mcVertices.back();
 }
 
 /**
@@ -234,11 +223,18 @@ tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex& arVertex)
 int tcModelConv::createFaces(float anThreshold)
 {
 //TODO:
-// Clear array of faces, if it exists
-// Create new tsFace object and add to array
-// Add first triangle in mpTriangles to object
-// Search remaining triangle for match
-// If triangle share at least one vertex AND have 
+// Create list of tsTrianlge pointers from mcTriangles
+//  As we use triangles on a face, remove from list, so we know when we have
+//   assigned all triangles to a face
+// Add new tsFace struct to mcFaces
+// Pop first triangle from face list and add to current face
+// Iterate through local triangle list
+// If triangle share at least one vertex AND are on same plane add face and remove from local list
+// Once we reach end of local list face is complete
+// Repeat until local triangle list is empty. Now we should have a series of faces where each triangle is used once and only once
+
+// OR think about how we can make this recursive where we iterate or mcFaces with larger and larger threshold
+//  This assumes mcFaces is initialized with... something (one triangle per face? Or combination of triangles into faces that are already on same plane?)
 
 	return -1;
 }

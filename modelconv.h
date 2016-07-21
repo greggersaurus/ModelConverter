@@ -58,7 +58,9 @@ protected:
 	struct tsTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
-		tsVertex* mpVertex1; //!< First vertex of triangle (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
+		tsVertex* mpVertex1; //!< Pointer to first vertex of triangle. 
+			//!< Note: This vertex is most likley shared with other 
+			//!< triangles. (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
 		tsVertex* mpVertex2;
 		tsVertex* mpVertex3;
 	};
@@ -67,7 +69,8 @@ protected:
 	{
 		tsNormal msNormal; //!< Normal vector of the face.
 		std::vector<tsTriangle*> mcTriangles; //!< Object triangles
-			//!< that can be joined to form a single face.
+			//!< that can be joined to form a face with a single
+			//!< normal vector (i.e. all faces are on one plane).
 	};
 
 	std::string to_string(const tsNormal& apNormal);
@@ -75,11 +78,11 @@ protected:
 	std::string to_string(const tsTriangle& apTriangle);
 	std::string to_string(const tsFace& apFace);
 
-	tsVertex* addVertex(const tsVertex& arVertex);
+	tsVertex& addVertex(const tsVertex& arVertex);
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 
-	std::vector<tsVertex> mcVertices; //!< Array of all vertex point in 
+	std::vector<tsVertex> mcVertices; //!< Array of all vertex points in 
 		//!< object, so that if modifications to object are made, we do 
 		//!< not risk separating connected triangles.
 
