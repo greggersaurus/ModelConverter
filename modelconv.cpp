@@ -41,7 +41,6 @@ int tcModelConv::importModel(const char* apFilename)
 	// Number of elements read by fread
 	size_t elem_read = 0;
 	uint32_t num_triangles = 0;
-	tsTriangle triangle;
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -85,10 +84,9 @@ int tcModelConv::importModel(const char* apFilename)
 
 	// Clean up triangle storage memory
 	mcTriangles.clear();
-	// We know how many triangle there are and this should make sure
-	//  we do not need to reszie vector while importing data
-//TODO: test that this is saving us time in construction with timers?
-	mcTriangles.reserve(num_triangles);
+	// We know exactly how many triangle there are and this should make sure
+	//  we allocate entries for all of them now
+	mcTriangles.resize(num_triangles);
 
 	// Clean up face storage memory
 	mcFaces.clear();
@@ -109,16 +107,13 @@ int tcModelConv::importModel(const char* apFilename)
 		}
 
 		// Copy normal vector data
-		triangle.msNormal = bin_stl_triangle.msNormal;
+		mcTriangles[cnt].msNormal = bin_stl_triangle.msNormal;
 
 		// (Potentially) add vertex data to array and get pointer
 		//  to vertx data in mpVertices
-		triangle.mpVertex1 = &addVertex(bin_stl_triangle.msVertex1);
-		triangle.mpVertex2 = &addVertex(bin_stl_triangle.msVertex2);
-		triangle.mpVertex3 = &addVertex(bin_stl_triangle.msVertex3);
-
-		// Add new triangle to vector
-		mcTriangles.push_back(triangle); 
+		mcTriangles[cnt].mpVertex1 = &addVertex(bin_stl_triangle.msVertex1);
+		mcTriangles[cnt].mpVertex2 = &addVertex(bin_stl_triangle.msVertex2);
+		mcTriangles[cnt].mpVertex3 = &addVertex(bin_stl_triangle.msVertex3);
 	}
 
 	if (fclose(file))
@@ -223,7 +218,7 @@ tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
 int tcModelConv::createFaces(float anThreshold)
 {
 //TODO:
-// Create list of tsTrianlge pointers from mcTriangles
+// Create std::list of tsTrianlge pointers from mcTriangles
 //  As we use triangles on a face, remove from list, so we know when we have
 //   assigned all triangles to a face
 // Add new tsFace struct to mcFaces
