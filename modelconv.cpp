@@ -16,11 +16,6 @@
  * Constructor.
  */
 tcModelConv::tcModelConv()
-: mnNumVerticies(0)
-, mnVerticiesArraySize(0)
-, mpVertices(NULL)
-, mnNumTriangles(0)
-, mpTriangles(NULL)
 {
 	memset(maBinStlHeader, 0, ARRAY_SIZE(maBinStlHeader));
 }
@@ -30,11 +25,6 @@ tcModelConv::tcModelConv()
  */
 tcModelConv::~tcModelConv()
 {
-	// Clean up triangle storage memory, if necessary
-	if (mpVertices)
-		delete [] mpVertices;
-	if (mpTriangles)
-		delete [] mpTriangles;
 }
 
 /**
@@ -49,6 +39,8 @@ int tcModelConv::importModel(const char* apFilename)
 	FILE* file = NULL;
 	// Number of elements read by fread
 	size_t elem_read = 0;
+	uint32_t num_triangles = 0;
+	tsTriangle triangle;
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -74,8 +66,8 @@ int tcModelConv::importModel(const char* apFilename)
 	}
 
 	// Read number of triangles in file from the STL file
-	elem_read = fread(&mnNumTriangles, 1, sizeof(mnNumTriangles), file);
-	if (sizeof(mnNumTriangles) != elem_read)
+	elem_read = fread(&num_triangles, 1, sizeof(num_triangles), file);
+	if (sizeof(num_triangles) != elem_read)
 	{
 		fprintf(stderr, "Only able to read %lu of %lu num triangle "
 			"field bytes from file \"%s\"\n", elem_read, 
@@ -83,31 +75,20 @@ int tcModelConv::importModel(const char* apFilename)
 		return -1;
 	}
 	
-	// Clean up vertex storage memory, if necessary
-	mnNumVerticies = 0;
-	if (mpVertices)
-		delete [] mpVertices;
-	// Size array for worst case (i.e. no shared vertices bewteen all
-	//  triangles). We could make this more memory efficient at the cost
-	//  of being more time efficient. For now we choose time over memory.
-	mnVerticiesArraySize = mnNumTriangles * 3;
-	mpVertices = new tsVertex[mnVerticiesArraySize];
+	// Clean up vertex storage memory
+	mcVertices.clear();
+	// If object is closed, there will be at one vertex per triangle. 
+	//  Start off with vector of this size to minimize dynamic resizing.
+	mcVertices.reserve(num_triangles);
 
-	// Clean up triangle storage memory, if necessary
-	if (mpTriangles)
-		delete [] mpTriangles;
-	// Allocate space for storing triangle data
-	mpTriangles = new tsTriangle[mnNumTriangles];
-	if (!mpTriangles)
-	{
-		fprintf(stderr, "Unable to allocate memory for %u triangles "
-			"required to store model data from file \"%s\"\n", 
-			mnNumTriangles, apFilename);
-		return -1;
-	}
+	// Clean up triangle storage memory
+	mcTriangles.clear();
+	// We know how many triangle there are and this should make sure
+	//  we do not need to reszie vector while importing data
+	mcTriangles.reserve(num_triangles);
 	
 	// Read the triangle data from the STL file
-	for (uint32_t cnt = 0; cnt < mnNumTriangles; cnt++)
+	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
 	{
 		elem_read = fread(&bin_stl_triangle, 1, 
 			sizeof(bin_stl_triangle), file);
@@ -116,44 +97,47 @@ int tcModelConv::importModel(const char* apFilename)
 			fprintf(stderr, "Only read %lu of %lu bytes for "
 				"triangle %u of %u from \"%s\" file.\n", 
 				elem_read, sizeof(bin_stl_triangle), cnt, 
-				mnNumTriangles, apFilename);
+				num_triangles, apFilename);
 			return -1;
 		}
 
 		// Copy normal vector data
-		mpTriangles[cnt].msNormal = bin_stl_triangle.msNormal;
+		triangle.msNormal = bin_stl_triangle.msNormal;
 
 		// (Potentially) add vertex data to array and get pointer
 		//  to vertx data in mpVertices
-		mpTriangles[cnt].mpVertex1 = 
-			addVertex(&bin_stl_triangle.msVertex1);
-		if (!mpTriangles[cnt].mpVertex1)
+		triangle.mpVertex1 = 
+			addVertex(bin_stl_triangle.msVertex1);
+		if (!triangle.mpVertex1)
 		{
 			fprintf(stderr, "Could not add Vertex 1 of "
 				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, mnNumTriangles, apFilename);
+				cnt, num_triangles, apFilename);
 			return -1;
 		}
 
-		mpTriangles[cnt].mpVertex2 = 
-			addVertex(&bin_stl_triangle.msVertex2);
-		if (!mpTriangles[cnt].mpVertex2)
+		triangle.mpVertex2 = 
+			addVertex(bin_stl_triangle.msVertex2);
+		if (!triangle.mpVertex2)
 		{
 			fprintf(stderr, "Could not add Vertex 2 of "
 				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, mnNumTriangles, apFilename);
+				cnt, num_triangles, apFilename);
 			return -1;
 		}
 
-		mpTriangles[cnt].mpVertex3 = 
-			addVertex(&bin_stl_triangle.msVertex3);
-		if (!mpTriangles[cnt].mpVertex3)
+		triangle.mpVertex3 = 
+			addVertex(bin_stl_triangle.msVertex3);
+		if (!triangle.mpVertex3)
 		{
 			fprintf(stderr, "Could not add Vertex 3 of "
 				"triangle %u of %u from \"%s\" file.\n", 
-				cnt, mnNumTriangles, apFilename);
+				cnt, num_triangles, apFilename);
 			return -1;
 		}
+
+		// Add new triangle to vector
+		mcTriangles.push_back(triangle); 
 	}
 
 	if (fclose(file))
@@ -164,17 +148,17 @@ int tcModelConv::importModel(const char* apFilename)
 	}
 
 
-//TODO: debug. 
-	printf("%u unique vertices found amongst %u triangles.\n", 
-		mnNumVerticies, mnNumTriangles);
+//TODO: debug print.
+	printf("%lu unique vertices found amongst %lu triangles.\n", 
+		mcVertices.size(), mcTriangles.size());
 
-	for (int cnt = 0; cnt < mnNumTriangles; cnt++)		
+	uint32_t cnt = 0;
+	for (std::vector<tsTriangle>::iterator it = mcTriangles.begin();
+		it != mcTriangles.end(); it++) 
 	{
-		printf("Triangle %u:\n", cnt);
-		printf("%s\n", to_string(&mpTriangles[cnt]).c_str());
+		printf("Triangle %u:\n", cnt++);
+		printf("%s\n", to_string(*it).c_str());
 	}
-
-//TODO: Creat faces, where each trianlge is a face at this point?
 
 	return 0;
 }
@@ -182,82 +166,62 @@ int tcModelConv::importModel(const char* apFilename)
 /**
  * \return The string representation of a tsNormal vector.
  */
-std::string tcModelConv::to_string(const tsNormal* apNormal)
+std::string tcModelConv::to_string(const tsNormal& arNormal)
 {
-	return "i = " + std::to_string(apNormal->i) + 
-		" j = " + std::to_string(apNormal->j) + 
-		" k = " + std::to_string(apNormal->k);	
+	return "i = " + std::to_string(arNormal.i) + 
+		" j = " + std::to_string(arNormal.j) + 
+		" k = " + std::to_string(arNormal.k);	
 }
 
 /**
  * \return The string representation of a tsVertex vector.
  */
-std::string tcModelConv::to_string(const tsVertex* apVertex)
+std::string tcModelConv::to_string(const tsVertex& arVertex)
 {
-	return "x = " + std::to_string(apVertex->x) + 
-		" y = " + std::to_string(apVertex->y) + 
-		" z = " + std::to_string(apVertex->z);	
+	return "x = " + std::to_string(arVertex.x) + 
+		" y = " + std::to_string(arVertex.y) + 
+		" z = " + std::to_string(arVertex.z);	
 }
 
 /**
  * \return The string representation of a tsTriangle vector.
  */
-std::string tcModelConv::to_string(const tsTriangle* apTriangle)
+std::string tcModelConv::to_string(const tsTriangle& arTriangle)
 {
-	return "Normal: " + to_string(&apTriangle->msNormal) + "\n" + 
-		"Vertex 1: " + to_string(apTriangle->mpVertex1) + "\n" + 
-		"Vertex 2: " + to_string(apTriangle->mpVertex2) + "\n" + 
-		"Vertex 3: " + to_string(apTriangle->mpVertex3);
+	return "Normal: " + to_string(arTriangle.msNormal) + "\n" + 
+		"Vertex 1: " + to_string(*arTriangle.mpVertex1) + "\n" + 
+		"Vertex 2: " + to_string(*arTriangle.mpVertex2) + "\n" + 
+		"Vertex 3: " + to_string(*arTriangle.mpVertex3);
 }
 
 /**
  * Add the given vertex data to mpVertices and return a pointer to that vertex.
  *  If the vertex data already exists in mpVertices, just return a pointer.
  *
- * \param[in] apVertex Vertex data to be copied into element in 
+ * \param[in] arVertex Vertex data to be copied into element in 
  *
  * \return Pointer to vertex data in mpVertices, or NULL on error.
  */
-tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex* apVertex)
+tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex& arVertex)
 {
-	tsVertex* vertex = NULL;
-	int offset = 0;
-
-	for (offset = 0; offset < mnNumVerticies; offset++)
+	// Search to see if vertex already exists in vector
+	for (std::vector<tsVertex>::iterator it = mcVertices.begin();
+		it != mcVertices.end(); it++)
 	{
 		// Compare all data in vertex struct
-		if (apVertex->x == mpVertices[offset].x && 
-			apVertex->y == mpVertices[offset].y && 
-			apVertex->z == mpVertices[offset].z)
+		if (arVertex.x == it->x && arVertex.y == it->y && 
+			arVertex.z == it->z)
 		{
-			// Save pointer to vertex and break out of loop on match
-			vertex = &mpVertices[offset];
-			break;
+			return &(*it);
 		}
 	}
 
-	// If we made it to the end of the valid data in the array, the
-	//  new vertex data and return pointer to that
-	if (offset == mnNumVerticies)
-	{
-		// Check that there is room left in the array
-		if (mnNumVerticies == mnVerticiesArraySize)
-		{
-			fprintf(stderr, "mpVertices (%u elements) is full, but "
-				"we need to add another vertex to the array.\n",
-				mnVerticiesArraySize);
-			return NULL;
-		}
+	// If we made it out of the loop without exiting the function we did
+	//  did not find the vertex in the vector already and need to add it
+	mcVertices.push_back(arVertex);
 
-		// Add the vertex to the array
-		mpVertices[offset] = *apVertex;
-		// Mark that there is one more valid vertex in the array
-		mnNumVerticies++;
-		// Return pointer to newly added vertex
-		vertex = &mpVertices[offset];
-	}
-
-	return vertex;
+	// Return pointer to newly added element
+	return &(mcVertices.back());
 }
 
 /**
@@ -269,6 +233,13 @@ tcModelConv::tsVertex* tcModelConv::addVertex(const tsVertex* apVertex)
  */
 int tcModelConv::createFaces(float anThreshold)
 {
+//TODO:
+// Clear array of faces, if it exists
+// Create new tsFace object and add to array
+// Add first triangle in mpTriangles to object
+// Search remaining triangle for match
+// If triangle share at least one vertex AND have 
+
 	return -1;
 }
 
@@ -285,6 +256,7 @@ int tcModelConv::exportBinStl(const char* apFilename)
 	// Number of elements written by fwrite
 	size_t elem_wr = 0;
 	tsBinStlTriangle bin_stl_triangle;
+	uint32_t num_triangles = (uint32_t)mcTriangles.size();
 
 	file = fopen(apFilename, "w");
 	if (!file)
@@ -306,23 +278,23 @@ int tcModelConv::exportBinStl(const char* apFilename)
 	}
 
 	// Write number of triangle
-	elem_wr = fwrite(&mnNumTriangles, 1, sizeof(mnNumTriangles), file);
-	if (sizeof(mnNumTriangles) != elem_wr)
+	elem_wr = fwrite(&num_triangles, 1, sizeof(num_triangles), file);
+	if (sizeof(num_triangles) != elem_wr)
 	{
 		fprintf(stderr, "Only wrote %lu of %lu bytes from "
-			"mnNumTriangles to file \"%s\"\n", elem_wr, 
-			sizeof(mnNumTriangles), apFilename);
+			"num_triangles to file \"%s\"\n", elem_wr, 
+			sizeof(num_triangles), apFilename);
 		return -1;
 	}
 
 	// Write triangle data
-	for (uint32_t cnt = 0; cnt < mnNumTriangles; cnt++)
+	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
 	{
 		// Copy trianlge data to struct for writing
-		bin_stl_triangle.msNormal = mpTriangles[cnt].msNormal;
-		bin_stl_triangle.msVertex1 = *(mpTriangles[cnt].mpVertex1);
-		bin_stl_triangle.msVertex2 = *(mpTriangles[cnt].mpVertex2);
-		bin_stl_triangle.msVertex3 = *(mpTriangles[cnt].mpVertex3);
+		bin_stl_triangle.msNormal = mcTriangles[cnt].msNormal;
+		bin_stl_triangle.msVertex1 = *(mcTriangles[cnt].mpVertex1);
+		bin_stl_triangle.msVertex2 = *(mcTriangles[cnt].mpVertex2);
+		bin_stl_triangle.msVertex3 = *(mcTriangles[cnt].mpVertex3);
 		bin_stl_triangle.mnAttrByteCnt = 0;
 
 		// Write triangle data to file
@@ -332,7 +304,7 @@ int tcModelConv::exportBinStl(const char* apFilename)
 		{
 			fprintf(stderr, "Only wrote %lu of %lu bytes from "
 				"%u of %u triangle to file \"%s\"\n", elem_wr, 
-				sizeof(bin_stl_triangle), cnt, mnNumTriangles,
+				sizeof(bin_stl_triangle), cnt, num_triangles,
 				apFilename);
 			return -1;
 		}

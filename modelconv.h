@@ -9,6 +9,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 class tcModelConv
 {
@@ -52,7 +53,7 @@ protected:
 		uint16_t mnAttrByteCnt; //!< Attribute byte count. Unused.
 	};
 	#pragma pack(pop)
-	// Back to default packing for everything else
+	// Back to default packing 
 
 	struct tsTriangle
 	{
@@ -62,22 +63,30 @@ protected:
 		tsVertex* mpVertex3;
 	};
 
-	std::string to_string(const tsNormal* apNormal);
-	std::string to_string(const tsVertex* apVertex);
-	std::string to_string(const tsTriangle* apTriangle);
+	struct tsFace
+	{
+		tsNormal msNormal; //!< Normal vector of the face.
+		std::vector<tsTriangle*> mcTriangles; //!< Object triangles
+			//!< that can be joined to form a single face.
+	};
 
-	tsVertex* addVertex(const tsVertex* apVertex);
+	std::string to_string(const tsNormal& apNormal);
+	std::string to_string(const tsVertex& apVertex);
+	std::string to_string(const tsTriangle& apTriangle);
+	std::string to_string(const tsFace& apFace);
 
-	uint32_t mnNumVerticies; //!< Number of valid vertices in mpVertices.
-	uint32_t mnVerticiesArraySize; //!< Size of mpVertices.
-	tsVertex* mpVertices; //!< Array of all vertex point in object, so that
-		//!< if modifications to object are made, we do not risk 
-		//!< separating connected triangles.
+	tsVertex* addVertex(const tsVertex& arVertex);
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 
-	uint32_t mnNumTriangles; //!< Number of elements in mpTriangles.
-	tsTriangle* mpTriangles; //!< Trianlges that define imported object.
+	std::vector<tsVertex> mcVertices; //!< Array of all vertex point in 
+		//!< object, so that if modifications to object are made, we do 
+		//!< not risk separating connected triangles.
+
+	std::vector<tsTriangle> mcTriangles; //!< Trianlges that define object.
+
+	std::vector<tsFace> mcFaces; //!< Faces (i.e. series of triangles on
+		//!< the same plane) that define the object.
 };
 
 #endif /* _MODEL_CONV_ */
