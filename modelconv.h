@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <list>
 
 class tcModelConv
 {
@@ -19,11 +20,13 @@ public:
 
 	int importModel(const char* apFilename);
 
-	int createFaces(float anThreshold);
+	int combineFaces(float anThreshold);
 
 	int exportBinStl(const char* apFilename);
 
 	int exportSvg(const char* apFilename);
+
+	void debugPrint();
 
 protected:
 
@@ -47,7 +50,7 @@ protected:
 	struct tsBinStlTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
-		tsVertex msVertex1; //!< First vertex of triangle (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
+		tsVertex msVertex1; 
 		tsVertex msVertex2;
 		tsVertex msVertex3;
 		uint16_t mnAttrByteCnt; //!< Attribute byte count. Unused.
@@ -58,9 +61,7 @@ protected:
 	struct tsTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
-		tsVertex* mpVertex1; //!< Pointer to first vertex of triangle. 
-			//!< Note: This vertex is most likley shared with other 
-			//!< triangles. (TODO: any implied position or direction to next vertex (i.e. clockwise)??)
+		tsVertex* mpVertex1; 
 		tsVertex* mpVertex2;
 		tsVertex* mpVertex3;
 	};
@@ -71,12 +72,15 @@ protected:
 		std::vector<tsTriangle*> mcTriangles; //!< Object triangles
 			//!< that can be joined to form a face with a single
 			//!< normal vector (i.e. all faces are on one plane).
+		std::list<tsVertex*> mcVertices; //!< Vertices that define
+			//!< the border of the face if traversed from front to 
+			//!< end.
 	};
 
-	std::string to_string(const tsNormal& apNormal);
-	std::string to_string(const tsVertex& apVertex);
-	std::string to_string(const tsTriangle& apTriangle);
-	std::string to_string(const tsFace& apFace);
+	std::string to_string(const tsNormal& arNormal);
+	std::string to_string(const tsVertex& arVertex);
+	std::string to_string(const tsTriangle& arTriangle);
+	std::string to_string(const tsFace& arFace);
 
 	tsVertex& addVertex(const tsVertex& arVertex);
 
@@ -88,7 +92,7 @@ protected:
 
 	std::vector<tsTriangle> mcTriangles; //!< Trianlges that define object.
 
-	std::vector<tsFace> mcFaces; //!< Faces (i.e. series of triangles on
+	std::list<tsFace> mcFaces; //!< Faces (i.e. series of triangles on
 		//!< the same plane) that define the object.
 };
 

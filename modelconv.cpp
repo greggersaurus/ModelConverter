@@ -25,6 +25,7 @@ tcModelConv::tcModelConv()
  */
 tcModelConv::~tcModelConv()
 {
+	//TODO: need to manually clear lists and vectors?
 }
 
 /**
@@ -88,9 +89,9 @@ int tcModelConv::importModel(const char* apFilename)
 	//  we allocate entries for all of them now
 	mcTriangles.resize(num_triangles);
 
-	// Clean up face storage memory
+	// Initialize each face to be a triangle for starters
 	mcFaces.clear();
-//TODO: any assumptions about how many faces the object might have?
+	mcFaces.resize(num_triangles);
 	
 	// Read the triangle data from the STL file
 	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
@@ -114,6 +115,14 @@ int tcModelConv::importModel(const char* apFilename)
 		mcTriangles[cnt].mpVertex1 = &addVertex(bin_stl_triangle.msVertex1);
 		mcTriangles[cnt].mpVertex2 = &addVertex(bin_stl_triangle.msVertex2);
 		mcTriangles[cnt].mpVertex3 = &addVertex(bin_stl_triangle.msVertex3);
+
+		// Populate faces, with each triangle as a face for starters
+//TODO: this will not work since mcFaces is list now, since faces may be removed at random later
+		mcFaces[cnt].msNormal = bin_stl_triangle.msNormal;
+		mcFaces[cnt].mcTriangles.push_back(&mcTriangles[cnt]);
+		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex1);
+		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex2);
+		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex3);
 	}
 
 	if (fclose(file))
@@ -123,9 +132,19 @@ int tcModelConv::importModel(const char* apFilename)
 		return -1;
 	}
 
+		
+
+	return 0;
+}
+
+/**
+ * TODO: want to print useful info. but shoudl this be to_string?
+ */
+void tcModelConv::debugPrint()
+{
 
 //TODO: debug print.
-	printf("%lu unique vertices found amongst %lu triangles.\n", 
+	printf("%lu unique vertices found amongst %lu triangles.\n\n", 
 		mcVertices.size(), mcTriangles.size());
 
 	uint32_t cnt = 0;
@@ -135,8 +154,15 @@ int tcModelConv::importModel(const char* apFilename)
 		printf("Triangle %u:\n", cnt++);
 		printf("%s\n", to_string(*it).c_str());
 	}
+	printf("\n");
 
-	return 0;
+	cnt = 0;
+	for (std::vector<tsFace>::iterator it = mcFaces.begin();
+		it != mcFaces.end(); it++) 
+	{
+		printf("Face %u:\n", cnt++);
+		printf("%s\n", to_string(*it).c_str());
+	}
 }
 
 /**
@@ -173,9 +199,33 @@ std::string tcModelConv::to_string(const tsTriangle& arTriangle)
 /**
  * \return The string representation of a tsFace.
  */
-std::string tcModelConv::to_string(const tsFace& apFace)
+std::string tcModelConv::to_string(const tsFace& arFace)
 {
-	return "TBD";
+	std::string retval = "";
+
+	retval += "Normal Vector:\n";
+	retval += to_string(arFace.msNormal);
+	retval += "\n";
+
+	retval += "Triangles:\n";
+	for (std::vector<tsTriangle*>::const_iterator itr = 
+		arFace.mcTriangles.begin(); itr != arFace.mcTriangles.end(); 
+		itr++)
+	{
+		retval += to_string(**itr);
+		retval += "\n";
+	}
+
+	retval += "Vertices:\n";
+	for (std::list<tsVertex*>::const_iterator itr = 
+		arFace.mcVertices.begin(); itr != arFace.mcVertices.end(); 
+		itr++)
+	{
+		retval += to_string(**itr);
+		retval += "\n";
+	}
+
+	return retval;
 }
 
 /**
@@ -209,27 +259,20 @@ tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
 }
 
 /**
- * Combine triangles on the same plane (or triangles almost on the same plane based on threshold).
+ * Combine faces on the same plane (or triangles almost on the same plane based on threshold).
  *
  * \param anThreshold TODO
  * 
  * \return 0 on success.
  */
-int tcModelConv::createFaces(float anThreshold)
+int tcModelConv::combineFaces(float anThreshold)
 {
-//TODO:
-// Create std::list of tsTrianlge pointers from mcTriangles
-//  As we use triangles on a face, remove from list, so we know when we have
-//   assigned all triangles to a face
-// Add new tsFace struct to mcFaces
-// Pop first triangle from face list and add to current face
-// Iterate through local triangle list
-// If triangle share at least one vertex AND are on same plane add face and remove from local list
-// Once we reach end of local list face is complete
-// Repeat until local triangle list is empty. Now we should have a series of faces where each triangle is used once and only once
 
-// OR think about how we can make this recursive where we iterate or mcFaces with larger and larger threshold
-//  This assumes mcFaces is initialized with... something (one triangle per face? Or combination of triangles into faces that are already on same plane?)
+//TODO:
+//  Search through mcFaces finding connecting edges and matching normal vectors
+//  First check if normals match (i.e. same degree)
+//  If they do, then search for common vertices...
+//   can just insert one last into other?
 
 	return -1;
 }
