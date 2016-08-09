@@ -83,6 +83,7 @@ protected:
 	std::string to_string(const tsFace& arFace);
 
 	tsVertex& addVertex(const tsVertex& arVertex);
+	int createFaces();
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 

@@ -63,6 +63,7 @@ int tcModelConv::importModel(const char* apFilename)
 		fprintf(stderr, "Only able to read %lu of %lu header bytes from"
 			" file \"%s\"\n", elem_read, ARRAY_SIZE(maBinStlHeader),
 			apFilename);
+		fclose(file);
 		return -1;
 	}
 
@@ -73,6 +74,7 @@ int tcModelConv::importModel(const char* apFilename)
 		fprintf(stderr, "Only able to read %lu of %lu num triangle "
 			"field bytes from file \"%s\"\n", elem_read, 
 			ARRAY_SIZE(maBinStlHeader), apFilename);
+		fclose(file);
 		return -1;
 	}
 	
@@ -88,10 +90,6 @@ int tcModelConv::importModel(const char* apFilename)
 	// We know exactly how many triangle there are and this should make sure
 	//  we allocate entries for all of them now
 	mcTriangles.resize(num_triangles);
-
-	// Initialize each face to be a triangle for starters
-	mcFaces.clear();
-	mcFaces.resize(num_triangles);
 	
 	// Read the triangle data from the STL file
 	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
@@ -104,6 +102,7 @@ int tcModelConv::importModel(const char* apFilename)
 				"triangle %u of %u from \"%s\" file.\n", 
 				elem_read, sizeof(bin_stl_triangle), cnt, 
 				num_triangles, apFilename);
+			fclose(file);
 			return -1;
 		}
 
@@ -115,14 +114,6 @@ int tcModelConv::importModel(const char* apFilename)
 		mcTriangles[cnt].mpVertex1 = &addVertex(bin_stl_triangle.msVertex1);
 		mcTriangles[cnt].mpVertex2 = &addVertex(bin_stl_triangle.msVertex2);
 		mcTriangles[cnt].mpVertex3 = &addVertex(bin_stl_triangle.msVertex3);
-
-		// Populate faces, with each triangle as a face for starters
-//TODO: this will not work since mcFaces is list now, since faces may be removed at random later
-		mcFaces[cnt].msNormal = bin_stl_triangle.msNormal;
-		mcFaces[cnt].mcTriangles.push_back(&mcTriangles[cnt]);
-		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex1);
-		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex2);
-		mcFaces[cnt].mcVertices.push_back(mcTriangles[cnt].mpVertex3);
 	}
 
 	if (fclose(file))
@@ -132,7 +123,32 @@ int tcModelConv::importModel(const char* apFilename)
 		return -1;
 	}
 
-		
+	if (createFaces())
+	{
+		fprintf(stderr, "Failed to create faces from imported data.\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/**
+ * Search through mcTriangles and fill in mcFaces, creating faces from 
+ *  conjoined triangles on the same plane.
+ *
+ * \return 0 on success.
+ */
+int tcModelConv::createFaces()
+{
+	mcFaces.clear();
+
+	for (std::vector<tsTriangle>::iterator itr = mcTriangles.begin();
+		itr != mcTriangles.end(); itr++) 
+	{
+
+//want to add triangles, one by one to a face, until we are sure we've added them all
+
+	}
 
 	return 0;
 }
@@ -157,7 +173,7 @@ void tcModelConv::debugPrint()
 	printf("\n");
 
 	cnt = 0;
-	for (std::vector<tsFace>::iterator it = mcFaces.begin();
+	for (std::list<tsFace>::iterator it = mcFaces.begin();
 		it != mcFaces.end(); it++) 
 	{
 		printf("Face %u:\n", cnt++);
@@ -271,9 +287,14 @@ int tcModelConv::combineFaces(float anThreshold)
 //TODO:
 //  Search through mcFaces finding connecting edges and matching normal vectors
 //  First check if normals match (i.e. same degree)
-//  If they do, then search for common vertices...
-//   can just insert one last into other?
-
+//  If they do, we need to:
+//	Add triangles from one face to other
+//	Combine vertices that make outline
+//		what vertices go away because they are no longer on edge?
+//		where we we insert other vertices?
+//			what assumptions can we safely make here?
+//  How do we know when we're done?
+//	i.e. how many times do we need to iterate over mcFaces and how can we make this more efficient?
 	return -1;
 }
 

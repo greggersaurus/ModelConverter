@@ -91,9 +91,6 @@ int main(int argc, char* argv[])
 
 	model_conv->debugPrint();
 
-	retval = model_conv->combineFaces(0.0);
-//TODO:
-
 	retval = model_conv->exportBinStl("test.stl");
 	if (retval)
 	{
