@@ -72,20 +72,11 @@ int main(int argc, char* argv[])
 	printf("Hello Wurld\n");
 
 	// Create class to process 3D model data
-	model_conv = new tcModelConv();
+	model_conv = new tcModelConv(input_file.c_str());
 	if (!model_conv)
 	{
 		fprintf(stderr, "Failed to allocate memory for model_conv. "
 			"Exiting.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	// Import data from specified file
-	retval = model_conv->importModel(input_file.c_str());	
-	if (retval)
-	{
-		fprintf(stderr, "Failed to import model data from file \"%s\". "
-			"Exiting.\n", input_file.c_str());
 		exit(EXIT_FAILURE);
 	}
 

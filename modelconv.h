@@ -15,12 +15,8 @@
 class tcModelConv
 {
 public:
-	tcModelConv();
+	tcModelConv(const char* apFilename);
 	~tcModelConv();
-
-	int importModel(const char* apFilename);
-
-	int combineFaces(float anThreshold);
 
 	int exportBinStl(const char* apFilename);
 
@@ -61,40 +57,27 @@ protected:
 	struct tsTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
-		tsVertex* mpVertex1; 
-		tsVertex* mpVertex2;
-		tsVertex* mpVertex3;
-	};
-
-	struct tsFace
-	{
-		tsNormal msNormal; //!< Normal vector of the face.
-		std::vector<tsTriangle*> mcTriangles; //!< Object triangles
-			//!< that can be joined to form a face with a single
-			//!< normal vector (i.e. all faces are on one plane).
-		std::list<tsVertex*> mcVertices; //!< Vertices that define
-			//!< the border of the face if traversed from front to 
-			//!< end.
+		tsVertex* mpVertices[3]; //!< A triangle is defined by three
+			//!< vertices.
+		tsTriangle* mpNeighbors[3]; //!< A triangle can have up to
+			//!< three adjacent triangles. NULL indicates an
+			//!< unconnected or open edge in the obkect.
 	};
 
 	std::string to_string(const tsNormal& arNormal);
 	std::string to_string(const tsVertex& arVertex);
 	std::string to_string(const tsTriangle& arTriangle);
-	std::string to_string(const tsFace& arFace);
 
 	tsVertex& addVertex(const tsVertex& arVertex);
-	int createFaces();
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 
 	std::vector<tsVertex> mcVertices; //!< Array of all vertex points in 
-		//!< object, so that if modifications to object are made, we do 
-		//!< not risk separating connected triangles.
+		//!< object. Each vertex is guaranteed unique in terms of 
+		//!< location this vector.
 
-	std::vector<tsTriangle> mcTriangles; //!< Trianlges that define object.
-
-	std::list<tsFace> mcFaces; //!< Faces (i.e. series of triangles on
-		//!< the same plane) that define the object.
+	std::vector<tsTriangle> mcTriangles; //!< All trianlges that define 
+		//!< the object.
 };
 
 #endif /* _MODEL_CONV_ */
