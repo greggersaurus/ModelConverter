@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 #include <string.h>
+//TODO: Added for use of exit() which is cheap way around not using exceptions for initial work on this class. FIXME
+#include <stdlib.h>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x))) //!< Used for calculating      
 	//!< static array sizes
@@ -36,7 +38,7 @@ tcModelConv::tcModelConv(const char* apFilename)
 	{
 		fprintf(stderr, "Failed to open file \"%s\"\n", apFilename);
 		//TODO: add proper exception throwing
-		while(1);
+		exit(EXIT_FAILURE);
 	}	
 
 	// Read header data from STL file
@@ -49,7 +51,7 @@ tcModelConv::tcModelConv(const char* apFilename)
 			apFilename);
 		fclose(file);
 		//TODO: add proper exception throwing
-		while(1);
+		exit(EXIT_FAILURE);
 	}
 
 	// Read number of triangles in file from the STL file
@@ -61,14 +63,13 @@ tcModelConv::tcModelConv(const char* apFilename)
 			ARRAY_SIZE(maBinStlHeader), apFilename);
 		fclose(file);
 		//TODO: add proper exception throwing
-		while(1);
+		exit(EXIT_FAILURE);
 	}
 	
 	// Clean up vertex storage memory
 	mcVertices.clear();
 	// If object is closed, there will be at one vertex per triangle. 
 	//  Start off with vector of this size to minimize dynamic resizing.
-//TODO: or should we assume largest possible and spend more memory in threat of wasting time reallocating? Or do we want this optimized for closed objects?
 	mcVertices.reserve(num_triangles);
 
 	// Clean up triangle storage memory
@@ -78,7 +79,7 @@ tcModelConv::tcModelConv(const char* apFilename)
 	mcTriangles.resize(num_triangles);
 	
 	// Read the triangle data from the STL file
-	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
+	for (uint32_t newest_idx = 0; newest_idx < num_triangles; newest_idx++)
 	{
 		elem_read = fread(&bin_stl_triangle, 1, 
 			sizeof(bin_stl_triangle), file);
@@ -86,21 +87,37 @@ tcModelConv::tcModelConv(const char* apFilename)
 		{
 			fprintf(stderr, "Only read %lu of %lu bytes for "
 				"triangle %u of %u from \"%s\" file.\n", 
-				elem_read, sizeof(bin_stl_triangle), cnt, 
+				elem_read, sizeof(bin_stl_triangle), newest_idx, 
 				num_triangles, apFilename);
 			fclose(file);
 			//TODO: add proper exception throw
-			while(1);
+			exit(EXIT_FAILURE);
 		}
 
 		// Copy normal vector data
-		mcTriangles[cnt].msNormal = bin_stl_triangle.msNormal;
+		mcTriangles[newest_idx].msNormal = bin_stl_triangle.msNormal;
 
 		// Potentially add vertex data to array and get pointer
 		//  to vertx data in mpVertices
-		mcTriangles[cnt].mpVertices[0] = &addVertex(bin_stl_triangle.msVertex1);
-		mcTriangles[cnt].mpVertices[1] = &addVertex(bin_stl_triangle.msVertex2);
-		mcTriangles[cnt].mpVertices[2] = &addVertex(bin_stl_triangle.msVertex3);
+		mcTriangles[newest_idx].mpVertices[0] = 
+			&addVertex(bin_stl_triangle.msVertex1);
+		mcTriangles[newest_idx].mpVertices[1] = 
+			&addVertex(bin_stl_triangle.msVertex2);
+		mcTriangles[newest_idx].mpVertices[2] = 
+			&addVertex(bin_stl_triangle.msVertex3);
+
+		// Start off assuming new triangle has no neighbors
+		mcTriangles[newest_idx].mpNeighbors[0] = NULL;
+		mcTriangles[newest_idx].mpNeighbors[1] = NULL;
+		mcTriangles[newest_idx].mpNeighbors[2] = NULL;
+
+		// Search for neighbors for newest triangle
+		for (uint32_t older_idx = 0; older_idx < newest_idx; 
+			older_idx++)
+		{
+			checkAdjacent(mcTriangles[newest_idx], 
+				mcTriangles[older_idx]);
+		}
 	}
 
 	if (fclose(file))
@@ -108,8 +125,10 @@ tcModelConv::tcModelConv(const char* apFilename)
 		fprintf(stderr, "Failed to close file \"%s\" after reading "
 			"data.\n", apFilename);
 		//TODO: add proper exception throwing
-		while(1);
+		exit(EXIT_FAILURE);
 	}
+
+	//TODO: create faces now that we have graph representing all triangles
 }
 
 /**
@@ -124,8 +143,6 @@ tcModelConv::~tcModelConv()
  */
 void tcModelConv::debugPrint()
 {
-
-//TODO: debug print.
 	printf("%lu unique vertices found amongst %lu triangles.\n\n", 
 		mcVertices.size(), mcTriangles.size());
 
@@ -133,8 +150,11 @@ void tcModelConv::debugPrint()
 	for (std::vector<tsTriangle>::iterator it = mcTriangles.begin();
 		it != mcTriangles.end(); it++) 
 	{
-		printf("Triangle %u:\n", cnt++);
-		printf("%s\n", to_string(*it).c_str());
+		printf("Triangle %u (%p): %s\n", cnt++, (void*)&(*it), to_string(*it).c_str());
+		for (int n_cnt = 0; n_cnt < 3; n_cnt++)
+		{
+			printf("\tNeighbor %d = (%p)\n", n_cnt, (void*)it->mpNeighbors[n_cnt]);
+		}
 	}
 	printf("\n");
 }
@@ -164,10 +184,10 @@ std::string tcModelConv::to_string(const tsVertex& arVertex)
  */
 std::string tcModelConv::to_string(const tsTriangle& arTriangle)
 {
-	return "Normal: " + to_string(arTriangle.msNormal) + "\n" + 
-		"Vertex 1: " + to_string(*arTriangle.mpVertices[0]) + "\n" + 
-		"Vertex 2: " + to_string(*arTriangle.mpVertices[1]) + "\n" + 
-		"Vertex 3: " + to_string(*arTriangle.mpVertices[2]);
+	return "Normal: (" + to_string(arTriangle.msNormal) + ") " + 
+		"Vertex 1: (" + to_string(*arTriangle.mpVertices[0]) + ") " + 
+		"Vertex 2: (" + to_string(*arTriangle.mpVertices[1]) + ") " + 
+		"Vertex 3: (" + to_string(*arTriangle.mpVertices[2]) + ") ";
 }
 
 
@@ -200,6 +220,77 @@ tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
 
 	// Return pointer to newly added element
 	return mcVertices.back();
+}
+
+/**
+ * Check if the two triangle are adjacent (i.e. shares two vertices). If they 
+ *  are, add them to each others neighbors list.
+ *
+ * \param arTriangle1 
+ * \param arTriangle2
+ */
+void tcModelConv::checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2)
+{
+	// Number of shared vertices
+	int num_shared = 0;
+
+	for (int t1_cnt = 0; t1_cnt < 3; t1_cnt++)
+	{
+		for (int t2_cnt = 0; t2_cnt < 3; t2_cnt++)
+		{
+			// We can compare pointers here because mpVertices 
+			//  point to mcVertices which only has unique entries
+			//  for each point in space.
+			if (arTriangle1.mpVertices[t1_cnt] == 
+				arTriangle2.mpVertices[t2_cnt])
+			{
+				num_shared++;
+				break;
+			}
+		}
+	}
+
+	if (3 == num_shared)
+	{
+		fprintf(stderr, "%s: Triangles have all the same vertices.\n", 
+			__func__);
+		//TODO: add exception throw
+		exit(EXIT_FAILURE);
+	}
+
+	if (2 == num_shared)
+	{
+		for (int cnt = 0; cnt < 3; cnt++)
+		{
+			if (!arTriangle1.mpNeighbors[cnt])			
+			{
+				arTriangle1.mpNeighbors[cnt] = &arTriangle2;
+				break;
+			}
+			if (2 == cnt)
+			{
+				fprintf(stderr, "%s: Triangle1 has no open "
+					"neighbors.\n", __func__);
+				//TODO: add exception throw
+				exit(EXIT_FAILURE);
+			}
+		}
+		for (int cnt = 0; cnt < 3; cnt++)
+		{
+			if (!arTriangle2.mpNeighbors[cnt])			
+			{
+				arTriangle2.mpNeighbors[cnt] = &arTriangle1;
+				break;
+			}
+			if (2 == cnt)
+			{
+				fprintf(stderr, "%s: Triangle2 has no open "
+					"neighbors.\n", __func__);
+				//TODO: add exception throw
+				exit(EXIT_FAILURE);
+			}
+		}
+	}
 }
 
 /**

@@ -58,7 +58,8 @@ protected:
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
 		tsVertex* mpVertices[3]; //!< A triangle is defined by three
-			//!< vertices.
+			//!< vertices. Each entry points to object stored in
+			//!< mcVertices.
 		tsTriangle* mpNeighbors[3]; //!< A triangle can have up to
 			//!< three adjacent triangles. NULL indicates an
 			//!< unconnected or open edge in the obkect.
@@ -69,6 +70,7 @@ protected:
 	std::string to_string(const tsTriangle& arTriangle);
 
 	tsVertex& addVertex(const tsVertex& arVertex);
+	void checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2);
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 
