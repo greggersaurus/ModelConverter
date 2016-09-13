@@ -10,6 +10,7 @@
 #include <string.h>
 //TODO: Added for use of exit() which is cheap way around not using exceptions for initial work on this class. FIXME
 #include <stdlib.h>
+#include <unordered_map>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x))) //!< Used for calculating      
 	//!< static array sizes
@@ -25,6 +26,11 @@ tcModelConv::tcModelConv(const char* apFilename)
 	// Number of elements read by fread
 	size_t elem_read = 0;
 	uint32_t num_triangles = 0;
+	// Used when building faces to know if we're already included a triangle
+	std::unordered_map<void*, int> triangle_trav_map = {};
+	// Used when building the border of a face to know how many triangles
+	//  touch a vertex
+	std::unordered_map<void*, int> vertex_cnt_map = {};
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -118,6 +124,9 @@ tcModelConv::tcModelConv(const char* apFilename)
 			checkAdjacent(mcTriangles[newest_idx], 
 				mcTriangles[older_idx]);
 		}
+
+		// Create zeroed entry to face building later
+		triangle_trav_map[&mcTriangles[newest_idx]] = 0;
 	}
 
 	if (fclose(file))
@@ -128,7 +137,25 @@ tcModelConv::tcModelConv(const char* apFilename)
 		exit(EXIT_FAILURE);
 	}
 
-	//TODO: create faces now that we have graph representing all triangles
+/*
+	// Create faces now that we have graph representing all triangles
+	for (std::vector<tsTriangle>::iterator it = mcTriangles.begin();
+		it != mcTriangles.end(); it++) 
+	{
+		tsTriangle* triangle = &(*it);
+
+		// Skip this triangle if it is already included in a face
+		if (triangle_trav_map[triangle])
+			continue;
+
+		// Mark that we have added this triangle to a face
+		triangle_trav_map[triangle]++;	
+
+//TODO: traverse all neighbors (and neighbors of neighbors) that are on the same plane. Save vertices that are shared with triangles not on same plane as they form border.
+
+	
+	}
+*/
 }
 
 /**

@@ -65,6 +65,12 @@ protected:
 			//!< unconnected or open edge in the obkect.
 	};
 
+	struct tsFace
+	{
+		std::vector<tsVertex*> mcBorder; //!< Vertices that define
+			//!< border of the face.
+	};
+
 	std::string to_string(const tsNormal& arNormal);
 	std::string to_string(const tsVertex& arVertex);
 	std::string to_string(const tsTriangle& arTriangle);
@@ -80,6 +86,9 @@ protected:
 
 	std::vector<tsTriangle> mcTriangles; //!< All trianlges that define 
 		//!< the object.
+
+	std::vector<tsFace> mcFaces; //!< Defines connected triangles that are 
+		//!< all on the same plane.
 };
 
 #endif /* _MODEL_CONV_ */
