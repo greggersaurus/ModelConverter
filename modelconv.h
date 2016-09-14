@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <list>
+#include <unordered_map>
 
 class tcModelConv
 {
@@ -46,6 +47,7 @@ protected:
 	struct tsBinStlTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
+//TODO: use array here
 		tsVertex msVertex1; 
 		tsVertex msVertex2;
 		tsVertex msVertex3;
@@ -58,16 +60,22 @@ protected:
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
 		tsVertex* mpVertices[3]; //!< A triangle is defined by three
-			//!< vertices. Each entry points to object stored in
+			//!< vertices. Each entry points to an object stored in
 			//!< mcVertices.
 		tsTriangle* mpNeighbors[3]; //!< A triangle can have up to
 			//!< three adjacent triangles. NULL indicates an
-			//!< unconnected or open edge in the obkect.
+			//!< unconnected or open edge in the object.
+			//!< neighbor[0] is on edge made by vertices 0 to 1
+			//!< neighbor[1] is on edge made by vertices 1 to 2
+			//!< neighbor[2] is on edge made by vertices 3 to 0
 	};
 
 	struct tsFace
 	{
-		std::vector<tsVertex*> mcBorder; //!< Vertices that define
+		tsNormal msNormal; 
+		//TODO: fill this in with triangle so we can export each face as it's own stl
+		std::list<tsTriangle*> mcTriangle;
+		std::list<tsVertex*> mcBorder; //!< Vertices that define
 			//!< border of the face.
 	};
 
@@ -76,7 +84,16 @@ protected:
 	std::string to_string(const tsTriangle& arTriangle);
 
 	tsVertex& addVertex(const tsVertex& arVertex);
-	void checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2);
+	void checkAdjacent(tsTriangle& arTri1, tsTriangle& arTri2);
+	void addNeighbor(tsTriangle& arTri1, tsTriangle& arTri2, 
+		uint8_t anShared);
+	void insertVertex(tsFace& arFace, const tsTriangle& arTri1, 
+		const tsTriangle& arTri2);
+	void buildFace(tsFace& arFace, 
+		std::unordered_map<void*, int>& arTravMap, const tsNormal& arNorm, 
+		const tsTriangle& arTri);
+//TODO
+//	void exportStl(std::list<tsTriangle*>& arTris);
 
 	uint8_t maBinStlHeader[80]; //!< Header read from binary STL file.
 

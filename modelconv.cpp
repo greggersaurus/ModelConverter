@@ -10,7 +10,6 @@
 #include <string.h>
 //TODO: Added for use of exit() which is cheap way around not using exceptions for initial work on this class. FIXME
 #include <stdlib.h>
-#include <unordered_map>
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x))) //!< Used for calculating      
 	//!< static array sizes
@@ -21,16 +20,16 @@
  * \param[in] apFilename File containing 3D model data.
  */
 tcModelConv::tcModelConv(const char* apFilename)
+: mcVertices({})
+, mcTriangles({})
+, mcFaces({})
 {
 	FILE* file = NULL;
 	// Number of elements read by fread
 	size_t elem_read = 0;
 	uint32_t num_triangles = 0;
 	// Used when building faces to know if we're already included a triangle
-	std::unordered_map<void*, int> triangle_trav_map = {};
-	// Used when building the border of a face to know how many triangles
-	//  touch a vertex
-	std::unordered_map<void*, int> vertex_cnt_map = {};
+	std::unordered_map<void*, int> tri_face_map = {};
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -126,7 +125,7 @@ tcModelConv::tcModelConv(const char* apFilename)
 		}
 
 		// Create zeroed entry to face building later
-		triangle_trav_map[&mcTriangles[newest_idx]] = 0;
+		tri_face_map[&mcTriangles[newest_idx]] = 0;
 	}
 
 	if (fclose(file))
@@ -137,25 +136,37 @@ tcModelConv::tcModelConv(const char* apFilename)
 		exit(EXIT_FAILURE);
 	}
 
-/*
 	// Create faces now that we have graph representing all triangles
 	for (std::vector<tsTriangle>::iterator it = mcTriangles.begin();
 		it != mcTriangles.end(); it++) 
 	{
+		// When building a face this keeps track of whether we have
+		//  visited the triangle already or not
+		// TODO: zero out map for all possible entries?
+		std::unordered_map<void*, int> tri_trav_map = {};
 		tsTriangle* triangle = &(*it);
+		//TODO: make pointer
+		tsFace face;
 
 		// Skip this triangle if it is already included in a face
-		if (triangle_trav_map[triangle])
+		if (tri_face_map[triangle])
 			continue;
 
+		// Start a new face
+		face.mcBorder = {};
+
 		// Mark that we have added this triangle to a face
-		triangle_trav_map[triangle]++;	
+		tri_face_map[triangle]++;	
+		// Mark that we have touched this triangle as part of building 
+		//  the face
+		tri_trav_map[triangle]++;
+
+		// BFS finding edges where triangles are not on same plane
 
 //TODO: traverse all neighbors (and neighbors of neighbors) that are on the same plane. Save vertices that are shared with triangles not on same plane as they form border.
 
 	
 	}
-*/
 }
 
 /**
@@ -253,13 +264,17 @@ tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
  * Check if the two triangle are adjacent (i.e. shares two vertices). If they 
  *  are, add them to each others neighbors list.
  *
- * \param arTriangle1 
- * \param arTriangle2
+ * \param arTri1 
+ * \param arTri2
+ *
+ * \return None.
  */
-void tcModelConv::checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2)
+void tcModelConv::checkAdjacent(tsTriangle& arTri1, tsTriangle& arTri2)
 {
-	// Number of shared vertices
-	int num_shared = 0;
+	// Bits 0-2 indicates which verticies are shared for each triangle.
+	//  Used for knowing where to position triangle as neighbor.
+	uint8_t tri1_shared = 0;
+	uint8_t tri2_shared = 0;
 
 	for (int t1_cnt = 0; t1_cnt < 3; t1_cnt++)
 	{
@@ -268,16 +283,17 @@ void tcModelConv::checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2
 			// We can compare pointers here because mpVertices 
 			//  point to mcVertices which only has unique entries
 			//  for each point in space.
-			if (arTriangle1.mpVertices[t1_cnt] == 
-				arTriangle2.mpVertices[t2_cnt])
+			if (arTri1.mpVertices[t1_cnt] == 
+				arTri2.mpVertices[t2_cnt])
 			{
-				num_shared++;
+				tri1_shared |= (uint8_t)(1 << t1_cnt);
+				tri2_shared |= (uint8_t)(1 << t2_cnt);
 				break;
 			}
 		}
 	}
 
-	if (3 == num_shared)
+	if (tri1_shared >= 0x7 || tri2_shared >= 0x7)
 	{
 		fprintf(stderr, "%s: Triangles have all the same vertices.\n", 
 			__func__);
@@ -285,39 +301,97 @@ void tcModelConv::checkAdjacent(tsTriangle& arTriangle1, tsTriangle& arTriangle2
 		exit(EXIT_FAILURE);
 	}
 
-	if (2 == num_shared)
+	addNeighbor(arTri1, arTri2, tri1_shared);
+	addNeighbor(arTri2, arTri1, tri2_shared);
+}
+
+/**
+ * Add arTri2 as a neighbor to arTri1. Neighbor location is based on anShared
+ *  bit field.
+ *
+ * \param arTri1
+ * \param arTri2 
+ * \param anShared 
+ * 
+ * \return None.
+ */
+void tcModelConv::addNeighbor(tsTriangle& arTri1, tsTriangle& arTri2, uint8_t anShared)
+{
+	switch (anShared)
 	{
-		for (int cnt = 0; cnt < 3; cnt++)
-		{
-			if (!arTriangle1.mpNeighbors[cnt])			
+		case 0x3:
+			if (arTri1.mpNeighbors[0])
 			{
-				arTriangle1.mpNeighbors[cnt] = &arTriangle2;
-				break;
-			}
-			if (2 == cnt)
-			{
-				fprintf(stderr, "%s: Triangle1 has no open "
-					"neighbors.\n", __func__);
-				//TODO: add exception throw
+				fprintf(stderr, "Neighbor not NULL\n");
+				//TODO: add proper exception throwing
 				exit(EXIT_FAILURE);
 			}
-		}
-		for (int cnt = 0; cnt < 3; cnt++)
-		{
-			if (!arTriangle2.mpNeighbors[cnt])			
+			arTri1.mpNeighbors[0] = &arTri2;
+			break;
+		case 0x5:
+			if (arTri1.mpNeighbors[1])
 			{
-				arTriangle2.mpNeighbors[cnt] = &arTriangle1;
-				break;
-			}
-			if (2 == cnt)
-			{
-				fprintf(stderr, "%s: Triangle2 has no open "
-					"neighbors.\n", __func__);
-				//TODO: add exception throw
+				fprintf(stderr, "Neighbor not NULL\n");
+				//TODO: add proper exception throwing
 				exit(EXIT_FAILURE);
 			}
-		}
+			arTri1.mpNeighbors[1] = &arTri2;
+			break;
+		case 0x6:
+			if (arTri1.mpNeighbors[2])
+			{
+				fprintf(stderr, "Neighbor not NULL\n");
+				//TODO: add proper exception throwing
+				exit(EXIT_FAILURE);
+			}
+			arTri1.mpNeighbors[2] = &arTri2;
+			break;
 	}
+}
+
+/**
+ * Insert vertices common to triangles into border of face.
+ *
+ * \param[out] arFace Vertices will be added to this face.
+ * \param[in] arTri1
+ * \param[in] arTri2
+ * 
+ * \return None.
+ */
+void tcModelConv::insertVertex(tsFace& arFace, const tsTriangle& arTri1, 
+	const tsTriangle& arTri2)
+{
+	// Find two common verticies
+
+	// Insert into border in appropriate location
+}
+
+/**
+ * Search through neighbors of triangle
+ */
+void tcModelConv::buildFace(tsFace& arFace, 
+	std::unordered_map<void*, int>& arTravMap, const tsNormal& arNorm, 
+	const tsTriangle& arTri)
+{
+	tsTriangle* neighbor = NULL;
+
+	for (int cnt = 0; cnt < 3; cnt++)
+	{
+		if (!neighbor)
+			//TODO: Need to add vertices on open edge
+			continue;
+
+		if (arNorm == neighbor->msNormal)
+		{
+			// Keep searching for edge of face
+			buildFace(arFace, arNorm, *neighbor);
+		}
+		else
+		{
+			// Found an edge of the face
+			insertVertex(arFace, arTri, *neighbor);
+		}
+	}			
 }
 
 /**
