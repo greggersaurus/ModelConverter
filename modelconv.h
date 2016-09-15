@@ -32,6 +32,11 @@ protected:
 		float i;
 		float j;
 		float k;
+
+		bool operator==(const tsNormal& rhs) const
+		{
+			return (rhs.i == i) && (rhs.j == j) && (rhs.k == k);
+		}
 	};
 
 	struct tsVertex
@@ -39,6 +44,11 @@ protected:
 		float x;
 		float y;
 		float z;
+
+		bool operator==(const tsVertex& rhs) const
+		{
+			return (rhs.x == x) && (rhs.y == y) && (rhs.z == z);
+		}
 	};
 
 	// Since this struct is used to read from a packed file, we need to
@@ -47,10 +57,7 @@ protected:
 	struct tsBinStlTriangle
 	{
 		tsNormal msNormal; //!< Normal vector of triangle.
-//TODO: use array here
-		tsVertex msVertex1; 
-		tsVertex msVertex2;
-		tsVertex msVertex3;
+		tsVertex maVertices[3]; 
 		uint16_t mnAttrByteCnt; //!< Attribute byte count. Unused.
 	};
 	#pragma pack(pop)

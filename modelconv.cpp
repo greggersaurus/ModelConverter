@@ -105,11 +105,11 @@ tcModelConv::tcModelConv(const char* apFilename)
 		// Potentially add vertex data to array and get pointer
 		//  to vertx data in mpVertices
 		mcTriangles[newest_idx].mpVertices[0] = 
-			&addVertex(bin_stl_triangle.msVertex1);
+			&addVertex(bin_stl_triangle.maVertices[0]);
 		mcTriangles[newest_idx].mpVertices[1] = 
-			&addVertex(bin_stl_triangle.msVertex2);
+			&addVertex(bin_stl_triangle.maVertices[1]);
 		mcTriangles[newest_idx].mpVertices[2] = 
-			&addVertex(bin_stl_triangle.msVertex3);
+			&addVertex(bin_stl_triangle.maVertices[2]);
 
 		// Start off assuming new triangle has no neighbors
 		mcTriangles[newest_idx].mpNeighbors[0] = NULL;
@@ -243,10 +243,8 @@ tcModelConv::tsVertex& tcModelConv::addVertex(const tsVertex& arVertex)
 	for (std::vector<tsVertex>::iterator it = mcVertices.begin();
 		it != mcVertices.end(); it++)
 	{
-		// Compare all data in vertex struct
-		// TODO: overload = operator?
-		if (arVertex.x == it->x && arVertex.y == it->y && 
-			arVertex.z == it->z)
+		// Compare vertex 
+		if (arVertex == *it)
 		{
 			return *it;
 		}
@@ -384,7 +382,7 @@ void tcModelConv::buildFace(tsFace& arFace,
 		if (arNorm == neighbor->msNormal)
 		{
 			// Keep searching for edge of face
-			buildFace(arFace, arNorm, *neighbor);
+			buildFace(arFace, arTravMap, arNorm, *neighbor);
 		}
 		else
 		{
@@ -443,9 +441,9 @@ int tcModelConv::exportBinStl(const char* apFilename)
 	{
 		// Copy trianlge data to struct for writing
 		bin_stl_triangle.msNormal = mcTriangles[cnt].msNormal;
-		bin_stl_triangle.msVertex1 = *(mcTriangles[cnt].mpVertices[0]);
-		bin_stl_triangle.msVertex2 = *(mcTriangles[cnt].mpVertices[1]);
-		bin_stl_triangle.msVertex3 = *(mcTriangles[cnt].mpVertices[2]);
+		bin_stl_triangle.maVertices[0] = *(mcTriangles[cnt].mpVertices[0]);
+		bin_stl_triangle.maVertices[1] = *(mcTriangles[cnt].mpVertices[1]);
+		bin_stl_triangle.maVertices[2] = *(mcTriangles[cnt].mpVertices[2]);
 		bin_stl_triangle.mnAttrByteCnt = 0;
 
 		// Write triangle data to file
