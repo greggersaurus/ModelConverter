@@ -5,9 +5,10 @@ Introduction
 ------------
 
 The idea of this project is to create a command line application that takes
- common 3D object file types (i.e. stl and obj files) and converts them into
- different formats and/or modifies the object data for future processing or
- conversion.
+ common 3D object file types (i.e. stl and obj), isolates faces (i.e.
+ connected triangles on the same plane) and then produces a file with the
+ outlines of these faces so that they can be cut of material using a laser
+ wood cutter and then assembled in the real world. 
 
 Inputs
 ------
@@ -42,13 +43,18 @@ Outputs
 
 The idea is to output an SVG file with the outlines of each face of the object
  so that they can be cut out and assembled from different materials (i.e. paper,
- cardboard). Various processing options are planned to automatically reduce
- the number of faces of an object to make assembly more reasonable. Edges will
- be labeled to aid in assembly. 
+ cardboard). 
+
+Edges will be labeled to aid in assembly. 
+
+Planning option to automatically modify edges to form interlocking patterns
+ to aid in assembly of model once faces have been cut. 
 
 ### Object Files
 
-The application will able to output an object file in the case that 
- modifications are being made to the model (i.e. polygon reduction or selective
- scaling). TODO
+Output of object file is mostly for testing verification and debug. 
+
+Output of entire object verifies object was read in correctly. 
+
+Output of faces verifies that faces were isolated correctly.
 
