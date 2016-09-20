@@ -80,8 +80,9 @@ protected:
 	struct tsFace
 	{
 		tsNormal msNormal; 
-		//TODO: fill this in with triangle so we can export each face as it's own stl
-		std::list<tsTriangle*> mcTriangle;
+		std::list<tsTriangle*> mcTriangles; //!< All triangles that
+			//!< make up a face. Mostly included for debug or
+			//!< face to object export.
 		std::list<tsVertex*> mcBorder; //!< Vertices that define
 			//!< border of the face.
 	};
@@ -97,8 +98,8 @@ protected:
 	void insertVertex(tsFace& arFace, const tsTriangle& arTri1, 
 		const tsTriangle& arTri2);
 	void buildFace(tsFace& arFace, 
-		std::unordered_map<void*, int>& arTravMap, const tsNormal& arNorm, 
-		const tsTriangle& arTri);
+		std::unordered_map<void*, int>& arTravMap, 
+		const tsNormal& arNorm, const tsTriangle& arTri);
 //TODO
 //	void exportStl(std::list<tsTriangle*>& arTris);
 

@@ -142,13 +142,12 @@ tcModelConv::tcModelConv(const char* apFilename)
 	{
 		// When building a face this keeps track of whether we have
 		//  visited the triangle already or not
-		// TODO: zero out map for all possible entries?
 		std::unordered_map<void*, int> tri_trav_map = {};
 		tsTriangle* triangle = &(*it);
-		//TODO: make pointer
 		tsFace face;
 
 		// Skip this triangle if it is already included in a face
+		// TODO: zero out map for all possible entries or will default constructor do this for us?
 		if (tri_face_map[triangle])
 			continue;
 
@@ -162,10 +161,7 @@ tcModelConv::tcModelConv(const char* apFilename)
 		tri_trav_map[triangle]++;
 
 		// BFS finding edges where triangles are not on same plane
-
-//TODO: traverse all neighbors (and neighbors of neighbors) that are on the same plane. Save vertices that are shared with triangles not on same plane as they form border.
-
-	
+		buildFace(face, tri_trav_map, triangle->msNormal, *triangle);
 	}
 }
 
@@ -365,13 +361,17 @@ void tcModelConv::insertVertex(tsFace& arFace, const tsTriangle& arTri1,
 }
 
 /**
- * Search through neighbors of triangle
+ * Find all connected triangle on the same plane. 
  */
 void tcModelConv::buildFace(tsFace& arFace, 
 	std::unordered_map<void*, int>& arTravMap, const tsNormal& arNorm, 
 	const tsTriangle& arTri)
 {
 	tsTriangle* neighbor = NULL;
+
+//TODO: Need to mark triangles added to face, as well as border triangles found, but not added to face. Use two hashmaps?
+
+//TODO: fill face in with triangle so we can export each face as it's own stl
 
 	for (int cnt = 0; cnt < 3; cnt++)
 	{
