@@ -27,6 +27,7 @@ public:
 
 protected:
 
+//TODO: make into class?
 	struct Normal
 	{
 		float i;
@@ -39,6 +40,7 @@ protected:
 		}
 	};
 
+//TODO: make into class?
 	struct Vertex
 	{
 		float x;
@@ -63,6 +65,7 @@ protected:
 	#pragma pack(pop)
 	// Back to default packing 
 
+//TODO: make into class?
 	struct Triangle
 	{
 		Normal normal; //!< Normal vector of triangle.
@@ -74,16 +77,17 @@ protected:
 			//!< unconnected or open edge in the object.
 			//!< neighbor[0] is on edge made by vertices 0 to 1
 			//!< neighbor[1] is on edge made by vertices 1 to 2
-			//!< neighbor[2] is on edge made by vertices 3 to 0
+			//!< neighbor[2] is on edge made by vertices 2 to 0
 	};
 
+//TODO: make into class?
 	struct Face
 	{
 		Normal normal; 
-		std::list<Triangle*> triangles; //!< All triangles that
+		std::list<const Triangle*> triangles; //!< All triangles that
 			//!< make up a face. Mostly included for debug or
 			//!< face to object export.
-		std::list<Vertex*> border; //!< Vertices that define
+		std::list<const Vertex*> border; //!< Vertices that define
 			//!< border of the face.
 	};
 
@@ -95,11 +99,11 @@ protected:
 	void checkAdjacent(Triangle& tri1, Triangle& tri2);
 	void addNeighbor(Triangle& tri, Triangle& neighbor, 
 		uint8_t sharedVtxs);
-	void insertVertex(Face& arFace, const Triangle& arTri1, 
-		const Triangle& arTri2);
-	void buildFace(Face& arFace, 
-		std::unordered_map<void*, int>& arTravMap, 
-		const Normal& arNorm, const Triangle& arTri);
+	void buildFace(const Triangle& tri, Face& face, 
+		std::unordered_map<const Triangle*, int>& faceMap,
+		std::unordered_map<const Triangle*, int>& travMap);
+	void insertVertex(Face& face, const Triangle& tri, int neighborIndex);
+
 //TODO
 //	void exportStl(std::list<Triangle*>& arTris);
 
@@ -108,11 +112,10 @@ protected:
 	std::vector<Vertex> vertices; //!< Unique entry for each vertex in
 		//!< object. 
 
-	std::vector<Triangle> triangles; //!< All trianlges that define 
-		//!< the object.
+	std::vector<Triangle> triangles; //!< Unique entry for each trianlge 
+		//!< in the object.
 
-	std::vector<Face> faces; //!< Defines connected triangles that are 
-		//!< all on the same plane.
+	std::vector<Face> faces; //!< Unique entry for each face of the object.
 };
 
 #endif /* _MODEL_CONV_ */

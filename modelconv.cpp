@@ -28,8 +28,11 @@ ModelConv::ModelConv(const char* filename)
 	// Number of elements read by fread
 	size_t elem_read = 0;
 	uint32_t num_triangles = 0;
-	// Used when building faces to know if we're already included a triangle
-	std::unordered_map<void*, int> tri_face_map = {};
+	// Used when building faces to know if we've already included a triangle in a face
+	std::unordered_map<const Triangle*, int> tri_face_map = {};
+	// Used when building a face to not repeat visits for that particular face.
+	std::unordered_map<const Triangle*, int> tri_trav_map = {};
+	Face face;
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -71,14 +74,10 @@ ModelConv::ModelConv(const char* filename)
 		exit(EXIT_FAILURE);
 	}
 	
-	// Clean up vertex storage memory
-	vertices.clear();
 	// If object is closed, there will be at one vertex per triangle. 
 	//  Start off with vector of this size to minimize dynamic resizing.
 	vertices.reserve(num_triangles);
 
-	// Clean up triangle storage memory
-	triangles.clear();
 	// We know exactly how many triangle there are and this should make sure
 	//  we allocate entries for all of them now
 	triangles.resize(num_triangles);
@@ -100,6 +99,7 @@ ModelConv::ModelConv(const char* filename)
 		}
 
 		// Copy normal vector data
+//TODO: is this safe? Does resize call default constructors and allow us reference "new" objects this way?
 		triangles[newest_idx].normal = bin_stl_triangle.normal;
 
 		// Potentially add vertex data to array and get pointer
@@ -134,31 +134,27 @@ ModelConv::ModelConv(const char* filename)
 	}
 
 	// Create faces now that we have graph representing all triangles
-	for (std::vector<Triangle>::iterator it = triangles.begin();
-		it != triangles.end(); it++) 
+	for (std::vector<Triangle>::iterator itr = triangles.begin();
+		itr != triangles.end(); itr++) 
 	{
-		// When building a face this keeps track of whether we have
-		//  visited the triangle already or not
-		std::unordered_map<void*, int> tri_trav_map = {};
-		Triangle* triangle = &(*it);
-		Face face;
+		Triangle* triangle = &(*itr);
 
-		// Skip this triangle if it is already included in a face
-		// TODO: zero out map for all possible entries or will default constructor do this for us?
+		// Skip constructing a face starting at this triangle, if it is
+		//  already in a face
 		if (tri_face_map[triangle])
 			continue;
 
-		// Start a new face
-		face.border = {};
+		// Clear our traversal map for this face
+		tri_trav_map.clear();
 
-		// Mark that we have added this triangle to a face
-		tri_face_map[triangle]++;	
-		// Mark that we have touched this triangle as part of building 
-		//  the face
-		tri_trav_map[triangle]++;
+		face.normal = triangle->normal;
+		face.triangles.clear();
+		face.border.clear();
 
 		// BFS finding edges where triangles are not on same plane
-		buildFace(face, tri_trav_map, triangle->normal, *triangle);
+		buildFace(*triangle, face, tri_face_map, tri_trav_map);
+
+		faces.push_back(face);
 	}
 }
 
@@ -258,8 +254,8 @@ ModelConv::Vertex& ModelConv::addVertex(const Vertex& vertex)
  * Check if the two triangle are adjacent (i.e. shares two vertices, also known
  *  as an edge). If they are, add them to each others neighbors list.
  *
- * \param[in/out] tri1 First triangle given for check.
- * \param[in/out] tri2 Second triangle given for check.
+ * \param[inout] tri1 First triangle given for check.
+ * \param[inout] tri2 Second triangle given for check.
  *
  * \return None.
  */
@@ -302,7 +298,7 @@ void ModelConv::checkAdjacent(Triangle& tri1, Triangle& tri2)
  * Add in neighboring triangle. Triangles are added to into array based on
  *  which edge/vertices are shared.
  *
- * \param[in/out] tri The triangle who will have a neighbor slot filled in.
+ * \param[inout] tri The triangle who will have a neighbor slot filled in.
  * \param[in] neighbor The triangle who is a neighbor to tri. 
  * \param sharedVtxs Bits 0-2 designate which vertices are shared, and hence in
  *	which neighbor slot neighbor should be placed in tri.
@@ -355,52 +351,97 @@ void ModelConv::addNeighbor(Triangle& tri, Triangle& neighbor,
 }
 
 /**
- * Insert vertices common to triangles into border of face.
+ * Find all connected triangle on the same plane. 
  *
- * \param[out] arFace Vertices will be added to this face.
- * \param[in] arTri1
- * \param[in] arTri2
- * 
+ * \param[in] tri Triangle to add to face.
+ * \param[inout] face Face that is in process of being built up.
+ * \param[inout] faceMap Keeps track of triangles already part of a face.
+ * \param[inout] travMap Keeps track of triangles already checked for building
+ * 	this particular face.
+ *
  * \return None.
  */
-void ModelConv::insertVertex(Face& arFace, const Triangle& arTri1, 
-	const Triangle& arTri2)
+void ModelConv::buildFace(const Triangle& tri, Face& face, 
+	std::unordered_map<const Triangle*, int>& faceMap,
+	std::unordered_map<const Triangle*, int>& travMap)
 {
-	// Find two common verticies
+	// Make sure we have no already added this face
+	if (faceMap[&tri])
+		return;;
 
-	// Insert into border in appropriate location
-}
-
-/**
- * Find all connected triangle on the same plane. 
- */
-void ModelConv::buildFace(Face& arFace, 
-	std::unordered_map<void*, int>& arTravMap, const Normal& arNorm, 
-	const Triangle& arTri)
-{
-	Triangle* neighbor = NULL;
-
-//TODO: Need to mark triangles added to face, as well as border triangles found, but not added to face. Use two hashmaps?
-
-//TODO: fill face in with triangle so we can export each face as it's own stl
+	faceMap[&tri] = 1;
+	travMap[&tri] = 1;	
+	face.triangles.push_back(&tri);
 
 	for (int cnt = 0; cnt < 3; cnt++)
 	{
-		if (!neighbor)
-			//TODO: Need to add vertices on open edge
-			continue;
+		Triangle* neighbor = tri.neighbors[cnt];
 
-		if (arNorm == neighbor->normal)
+		if (!neighbor)
 		{
-			// Keep searching for edge of face
-			buildFace(arFace, arTravMap, arNorm, *neighbor);
+			insertVertex(face, tri, cnt);
+			continue;
+		}
+
+		// Make sure we have not already visited this triangle for this
+		//  face construction
+		if (travMap[neighbor])
+			continue;
+	
+		if (tri.normal == neighbor->normal)
+		{
+			// Neighbor is face of this face
+			buildFace(*neighbor, face, faceMap, travMap);
 		}
 		else
 		{
-			// Found an edge of the face
-			insertVertex(arFace, arTri, *neighbor);
+			// neighbor is not on this face
+			travMap[neighbor] = 1;
+			insertVertex(face, tri, cnt);
 		}
 	}			
+}
+
+/**
+ * Insert vertices common to triangles into border of face.
+ *
+ * \param[inout] face Face for which vertices are being inserted into border.
+ * \param[in] tri Triangle in face that has a border edge.
+ * \param[in] neighborIndex Index of neighbor in tri that is edge of face, 
+ *	which indicates which vertices to add to face border.
+ * 
+ * \return None.
+ */
+void ModelConv::insertVertex(Face& face, const Triangle& tri, int neighborIndex)
+{
+	Vertex* vtx1 = NULL;
+	Vertex* vtx2 = NULL;
+	
+	switch(neighborIndex)
+	{
+//TODO: could calc index with math instead of switch statement
+		case 0:
+			vtx1 = tri.vertices[0];
+			vtx2 = tri.vertices[1];
+			break;
+		case 1:
+			vtx1 = tri.vertices[1];
+			vtx2 = tri.vertices[2];
+			break;
+		case 2:
+			vtx1 = tri.vertices[2];
+			vtx2 = tri.vertices[0];
+			break;
+		default:
+			fprintf(stderr, "%s: Invalid bit neighbor index %d\n", 
+				__func__, neighborIndex);
+			//TODO: add proper exception throwing
+			exit(EXIT_FAILURE);
+			break;
+	}
+
+	// Insert into border in appropriate location
+//TODO
 }
 
 /**
@@ -491,6 +532,7 @@ int ModelConv::exportBinStl(const char* filename)
 int ModelConv::exportSvg(const char* filename)
 {
 //TODO: what if there are no faces created, or will they be created as soon as data is imported??
+//TODO: don't forget we need to map to from X,Y,Z to X,Y plane
 
 	return -1;
 }
