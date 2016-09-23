@@ -34,7 +34,6 @@ void print_usage(const char* apExeName)
  */
 int main(int argc, char* argv[])
 {
-	int retval = -1;
 	std::string input_file = "";
 	ModelConv* model_conv = NULL; 
 
@@ -80,15 +79,7 @@ int main(int argc, char* argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	model_conv->debugPrint();
-
-	retval = model_conv->exportBinStl("test.stl");
-	if (retval)
-	{
-		fprintf(stderr, "Failed to export model data to file. "
-			"Exiting.\n");
-		exit(EXIT_FAILURE);
-	}
+//	model_conv->debugPrint();
 
 	exit(EXIT_SUCCESS);
 }

@@ -156,6 +156,19 @@ ModelConv::ModelConv(const char* filename)
 
 		faces.push_back(face);
 	}
+
+//TODO: debug
+	
+	int cntr = 0;
+	for (std::vector<Face>::iterator itr = faces.begin();
+		itr != faces.end(); itr++)
+	{
+		std::string filename = "test";
+		filename.append(std::to_string(cntr++));
+		filename.append(".stl");
+
+		exportBinStl(filename.c_str(), itr->triangles);
+	}
 }
 
 /**
@@ -163,6 +176,40 @@ ModelConv::ModelConv(const char* filename)
  */
 ModelConv::~ModelConv()
 {
+}
+
+/**
+ * Export entire model data to single STL file format with binary data.
+ *
+ * \param[in] filename Filename to write STL data to.
+ *
+ * \return None.
+ */
+void ModelConv::exportBinStl(const char* filename)
+{
+//TODO: want to make generic export, but we have vector of Triangle* in one case, and Triangle in other...
+//	Could build from triangles... Do we really care about time that takes?
+	//exportBinStl(filename, this->triangles);	
+	fprintf(stderr, "%s: Not implemented yet.\n", __func__);
+	//TODO: add proper exception throwing
+	exit(EXIT_FAILURE);
+}
+
+/**
+ * Output Scalable Vector Graphs with each face as an outlined object.
+ *
+ * \param[in] filename Filename to write SVG data to.
+ *
+ * \return 0 on success.
+ */
+void ModelConv::exportSvg(const char* filename)
+{
+//TODO: what if there are no faces created, or will they be created as soon as data is imported??
+//TODO: don't forget we need to map to from X,Y,Z to X,Y plane
+
+	fprintf(stderr, "%s: Not implemented yet.\n", __func__);
+	//TODO: add proper exception throwing
+	exit(EXIT_FAILURE);
 }
 
 /**
@@ -217,7 +264,6 @@ std::string ModelConv::to_string(const Triangle& triangle)
 		"Vertex 3: (" + to_string(*triangle.vertices[2]) + ") ";
 }
 
-
 /**
  * Add the given vertex data to vertices and return a pointer to that vertex.
  *  If the vertex data already exists in vertices, just return a pointer.
@@ -265,6 +311,7 @@ void ModelConv::checkAdjacent(Triangle& tri1, Triangle& tri2)
 	//  Used for knowing where to position triangle as neighbor.
 	uint8_t tri1_shared = 0;
 	uint8_t tri2_shared = 0;
+	uint8_t matches_found = 0;
 
 	for (int t1_cnt = 0; t1_cnt < 3; t1_cnt++)
 	{
@@ -277,12 +324,16 @@ void ModelConv::checkAdjacent(Triangle& tri1, Triangle& tri2)
 			{
 				tri1_shared |= (uint8_t)(1 << t1_cnt);
 				tri2_shared |= (uint8_t)(1 << t2_cnt);
+				matches_found++;
 				break;
 			}
 		}
 	}
 
-	if (tri1_shared >= 0x7 || tri2_shared >= 0x7)
+	if (matches_found < 2)
+		return;
+
+	if (matches_found > 2)
 	{
 		fprintf(stderr, "%s: Triangles have all the same vertices.\n", 
 			__func__);
@@ -444,14 +495,17 @@ void ModelConv::insertVertex(Face& face, const Triangle& tri, int neighborIndex)
 //TODO
 }
 
+
 /**
- * Export model data to STL file format with binary data.
+ * Export given triangle data to binary STL file.
  *
- * \param[in] filename Filename to write STL data to.
+ * \param[in] filename
+ * \param[in] triangles
  *
- * \return 0 on success.
+ * \return None.
  */
-int ModelConv::exportBinStl(const char* filename)
+void ModelConv::exportBinStl(const char* filename, 
+	const std::vector<const Triangle*>& triangles)
 {
 	FILE* file = NULL;
 	// Number of elements written by fwrite
@@ -464,7 +518,8 @@ int ModelConv::exportBinStl(const char* filename)
 	{
 		fprintf(stderr, "Failed to open file \"%s\" for writing.\n",
 			filename);
-		return -1;
+		//TODO: add proper exception throwing
+		exit(EXIT_FAILURE);
 	}
 
 	// Write header data
@@ -475,7 +530,8 @@ int ModelConv::exportBinStl(const char* filename)
 		fprintf(stderr, "Only wrote %lu of %lu bytes from "
 			"binStlHeader to file \"%s\"\n", elem_wr, 
 			ARRAY_SIZE(binStlHeader), filename);
-		return -1;
+		//TODO: add proper exception throwing
+		exit(EXIT_FAILURE);
 	}
 
 	// Write number of triangle
@@ -485,17 +541,18 @@ int ModelConv::exportBinStl(const char* filename)
 		fprintf(stderr, "Only wrote %lu of %lu bytes from "
 			"num_triangles to file \"%s\"\n", elem_wr, 
 			sizeof(num_triangles), filename);
-		return -1;
+		//TODO: add proper exception throwing
+		exit(EXIT_FAILURE);
 	}
 
 	// Write triangle data
 	for (uint32_t cnt = 0; cnt < num_triangles; cnt++)
 	{
 		// Copy trianlge data to struct for writing
-		bin_stl_triangle.normal = triangles[cnt].normal;
-		bin_stl_triangle.vertices[0] = *(triangles[cnt].vertices[0]);
-		bin_stl_triangle.vertices[1] = *(triangles[cnt].vertices[1]);
-		bin_stl_triangle.vertices[2] = *(triangles[cnt].vertices[2]);
+		bin_stl_triangle.normal = triangles[cnt]->normal;
+		bin_stl_triangle.vertices[0] = *(triangles[cnt]->vertices[0]);
+		bin_stl_triangle.vertices[1] = *(triangles[cnt]->vertices[1]);
+		bin_stl_triangle.vertices[2] = *(triangles[cnt]->vertices[2]);
 		bin_stl_triangle.attrByteCnt = 0;
 
 		// Write triangle data to file
@@ -507,7 +564,8 @@ int ModelConv::exportBinStl(const char* filename)
 				"%u of %u triangle to file \"%s\"\n", elem_wr, 
 				sizeof(bin_stl_triangle), cnt, num_triangles,
 				filename);
-			return -1;
+			//TODO: add proper exception throwing
+			exit(EXIT_FAILURE);
 		}
 		
 	}
@@ -516,24 +574,7 @@ int ModelConv::exportBinStl(const char* filename)
 	{
 		fprintf(stderr, "Failed to close file \"%s\" after writing "
 			"data.\n", filename);
-		return -1;
+		//TODO: add proper exception throwing
+		exit(EXIT_FAILURE);
 	}
-
-	return 0;
 }
-
-/**
- * Output Scalable Vector Graphs with each face as an outlined object.
- *
- * \param[in] filename Filename to write SVG data to.
- *
- * \return 0 on success.
- */
-int ModelConv::exportSvg(const char* filename)
-{
-//TODO: what if there are no faces created, or will they be created as soon as data is imported??
-//TODO: don't forget we need to map to from X,Y,Z to X,Y plane
-
-	return -1;
-}
-

@@ -19,15 +19,15 @@ public:
 	ModelConv(const char* filename);
 	~ModelConv();
 
-	int exportBinStl(const char* filename);
+	void exportBinStl(const char* filename);
 
-	int exportSvg(const char* filename);
+	void exportSvg(const char* filename);
 
 	void debugPrint();
 
 protected:
 
-//TODO: make into class?
+//TODO: make into class? construction and init being taken care of correctly in code?
 	struct Normal
 	{
 		float i;
@@ -40,7 +40,7 @@ protected:
 		}
 	};
 
-//TODO: make into class?
+//TODO: make into class? construction and init being taken care of correctly in code?
 	struct Vertex
 	{
 		float x;
@@ -65,7 +65,7 @@ protected:
 	#pragma pack(pop)
 	// Back to default packing 
 
-//TODO: make into class?
+//TODO: make into class? construction and init being taken care of correctly in code?
 	struct Triangle
 	{
 		Normal normal; //!< Normal vector of triangle.
@@ -80,11 +80,11 @@ protected:
 			//!< neighbor[2] is on edge made by vertices 2 to 0
 	};
 
-//TODO: make into class?
+//TODO: make into class? construction and init being taken care of correctly in code?
 	struct Face
 	{
 		Normal normal; 
-		std::list<const Triangle*> triangles; //!< All triangles that
+		std::vector<const Triangle*> triangles; //!< All triangles that
 			//!< make up a face. Mostly included for debug or
 			//!< face to object export.
 		std::list<const Vertex*> border; //!< Vertices that define
@@ -104,8 +104,8 @@ protected:
 		std::unordered_map<const Triangle*, int>& travMap);
 	void insertVertex(Face& face, const Triangle& tri, int neighborIndex);
 
-//TODO
-//	void exportStl(std::list<Triangle*>& arTris);
+	void exportBinStl(const char* filename, 
+		const std::vector<const Triangle*>& triangles);
 
 	uint8_t binStlHeader[80]; //!< Header read from binary STL file.
 
