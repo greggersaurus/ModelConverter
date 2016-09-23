@@ -233,16 +233,16 @@ std::string ModelConv::to_string(const Triangle& triangle)
 ModelConv::Vertex& ModelConv::addVertex(const Vertex& vertex)
 {
 //TODO: it would be more efficient to use a map here, so we don't iterate over everything we have each time we add
-//	need to define hash function for vertex
+//	need to define hash function for vertex in order to use map
 
 	// Search to see if vertex already exists in vector
-	for (std::vector<Vertex>::iterator it = vertices.begin();
-		it != vertices.end(); it++)
+	for (std::vector<Vertex>::iterator itr = vertices.begin();
+		itr != vertices.end(); itr++)
 	{
 		// Compare vertex 
-		if (vertex == *it)
+		if (vertex == *itr)
 		{
-			return *it;
+			return *itr;
 		}
 	}
 
@@ -255,15 +255,15 @@ ModelConv::Vertex& ModelConv::addVertex(const Vertex& vertex)
 }
 
 /**
- * Check if the two triangle are adjacent (i.e. shares two vertices). If they 
- *  are, add them to each others neighbors list.
+ * Check if the two triangle are adjacent (i.e. shares two vertices, also known
+ *  as an edge). If they are, add them to each others neighbors list.
  *
- * \param arTri1 
- * \param arTri2
+ * \param[in/out] tri1 First triangle given for check.
+ * \param[in/out] tri2 Second triangle given for check.
  *
  * \return None.
  */
-void ModelConv::checkAdjacent(Triangle& arTri1, Triangle& arTri2)
+void ModelConv::checkAdjacent(Triangle& tri1, Triangle& tri2)
 {
 	// Bits 0-2 indicates which verticies are shared for each triangle.
 	//  Used for knowing where to position triangle as neighbor.
@@ -277,8 +277,7 @@ void ModelConv::checkAdjacent(Triangle& arTri1, Triangle& arTri2)
 			// We can compare pointers here because vertices 
 			//  point to vertices which only has unique entries
 			//  for each point in space.
-			if (arTri1.vertices[t1_cnt] == 
-				arTri2.vertices[t2_cnt])
+			if (tri1.vertices[t1_cnt] == tri2.vertices[t2_cnt])
 			{
 				tri1_shared |= (uint8_t)(1 << t1_cnt);
 				tri2_shared |= (uint8_t)(1 << t2_cnt);
@@ -295,50 +294,62 @@ void ModelConv::checkAdjacent(Triangle& arTri1, Triangle& arTri2)
 		exit(EXIT_FAILURE);
 	}
 
-	addNeighbor(arTri1, arTri2, tri1_shared);
-	addNeighbor(arTri2, arTri1, tri2_shared);
+	addNeighbor(tri1, tri2, tri1_shared);
+	addNeighbor(tri2, tri1, tri2_shared);
 }
 
 /**
- * Add arTri2 as a neighbor to arTri1. Neighbor location is based on anShared
- *  bit field.
+ * Add in neighboring triangle. Triangles are added to into array based on
+ *  which edge/vertices are shared.
  *
- * \param arTri1
- * \param arTri2 
- * \param anShared 
+ * \param[in/out] tri The triangle who will have a neighbor slot filled in.
+ * \param[in] neighbor The triangle who is a neighbor to tri. 
+ * \param sharedVtxs Bits 0-2 designate which vertices are shared, and hence in
+ *	which neighbor slot neighbor should be placed in tri.
  * 
  * \return None.
  */
-void ModelConv::addNeighbor(Triangle& arTri1, Triangle& arTri2, uint8_t anShared)
+void ModelConv::addNeighbor(Triangle& tri, Triangle& neighbor, 
+	uint8_t sharedVtxs)
 {
-	switch (anShared)
+	switch (sharedVtxs)
 	{
 		case 0x3:
-			if (arTri1.neighbors[0])
+			if (tri.neighbors[0])
 			{
-				fprintf(stderr, "Neighbor not NULL\n");
+				fprintf(stderr, "%s: Neighbor 0 not NULL\n", 
+					__func__);
 				//TODO: add proper exception throwing
 				exit(EXIT_FAILURE);
 			}
-			arTri1.neighbors[0] = &arTri2;
+			tri.neighbors[0] = &neighbor;
 			break;
 		case 0x5:
-			if (arTri1.neighbors[1])
+			if (tri.neighbors[1])
 			{
-				fprintf(stderr, "Neighbor not NULL\n");
+				fprintf(stderr, "%s: Neighbor 1 not NULL\n", 
+					__func__);
 				//TODO: add proper exception throwing
 				exit(EXIT_FAILURE);
 			}
-			arTri1.neighbors[1] = &arTri2;
+			tri.neighbors[1] = &neighbor;
 			break;
 		case 0x6:
-			if (arTri1.neighbors[2])
+			if (tri.neighbors[2])
 			{
+				fprintf(stderr, "%s: Neighbor 2 not NULL\n", 
+					__func__);
 				fprintf(stderr, "Neighbor not NULL\n");
 				//TODO: add proper exception throwing
 				exit(EXIT_FAILURE);
 			}
-			arTri1.neighbors[2] = &arTri2;
+			tri.neighbors[2] = &neighbor;
+			break;
+		default:
+			fprintf(stderr, "%s: Invalid bit combination 0x%x\n", 
+				__func__, sharedVtxs);
+			//TODO: add proper exception throwing
+			exit(EXIT_FAILURE);
 			break;
 	}
 }

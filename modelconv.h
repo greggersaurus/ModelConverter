@@ -92,9 +92,9 @@ protected:
 	std::string to_string(const Triangle& triangle);
 
 	Vertex& addVertex(const Vertex& vertex);
-	void checkAdjacent(Triangle& arTri1, Triangle& arTri2);
-	void addNeighbor(Triangle& arTri1, Triangle& arTri2, 
-		uint8_t anShared);
+	void checkAdjacent(Triangle& tri1, Triangle& tri2);
+	void addNeighbor(Triangle& tri, Triangle& neighbor, 
+		uint8_t sharedVtxs);
 	void insertVertex(Face& arFace, const Triangle& arTri1, 
 		const Triangle& arTri2);
 	void buildFace(Face& arFace, 
