@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 {
 	int retval = -1;
 	std::string input_file = "";
-	tcModelConv* model_conv = NULL; 
+	ModelConv* model_conv = NULL; 
 
 	// For command line arg parsing
 	int opt;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
 	printf("Hello Wurld\n");
 
 	// Create class to process 3D model data
-	model_conv = new tcModelConv(input_file.c_str());
+	model_conv = new ModelConv(input_file.c_str());
 	if (!model_conv)
 	{
 		fprintf(stderr, "Failed to allocate memory for model_conv. "
