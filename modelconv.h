@@ -12,6 +12,7 @@
 #include <vector>
 #include <list>
 #include <unordered_map>
+#include <math.h>
 
 class ModelConv
 {
@@ -36,7 +37,10 @@ protected:
 
 		bool operator==(const Normal& rhs) const
 		{
-			return (rhs.i == i) && (rhs.j == j) && (rhs.k == k);
+//TODO: Is this the best way to control thresholding the imprecision of float conversions?
+			return (fabs(rhs.i-i) < .00001) && 
+				(fabs(rhs.j-j) < .00001) && 
+				(fabs(rhs.k- k) < .00001);
 		}
 	};
 
@@ -109,13 +113,13 @@ protected:
 
 	uint8_t binStlHeader[80]; //!< Header read from binary STL file.
 
-	std::vector<Vertex> vertices; //!< Unique entry for each vertex in
+	std::vector<Vertex*> vertices; //!< Unique entry for each vertex in
 		//!< object. 
 
-	std::vector<Triangle> triangles; //!< Unique entry for each trianlge 
+	std::vector<Triangle*> triangles; //!< Unique entry for each trianlge 
 		//!< in the object.
 
-	std::vector<Face> faces; //!< Unique entry for each face of the object.
+	std::vector<Face*> faces; //!< Unique entry for each face of the object.
 };
 
 #endif /* _MODEL_CONV_ */

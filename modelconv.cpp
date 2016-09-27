@@ -32,7 +32,6 @@ ModelConv::ModelConv(const char* filename)
 	std::unordered_map<const Triangle*, int> tri_face_map = {};
 	// Used when building a face to not repeat visits for that particular face.
 	std::unordered_map<const Triangle*, int> tri_trav_map = {};
-	Face face;
 
 //TODO: Add code to check file type, etc. For now only support binary STL. Will add functions for parsing different file types later?
 
@@ -98,30 +97,31 @@ ModelConv::ModelConv(const char* filename)
 			exit(EXIT_FAILURE);
 		}
 
+		triangles[newest_idx] = new Triangle();
+
 		// Copy normal vector data
-//TODO: is this safe? Does resize call default constructors and allow us reference "new" objects this way?
-		triangles[newest_idx].normal = bin_stl_triangle.normal;
+		triangles[newest_idx]->normal = bin_stl_triangle.normal;
 
 		// Potentially add vertex data to array and get pointer
 		//  to vertx data in vertices
-		triangles[newest_idx].vertices[0] = 
+		triangles[newest_idx]->vertices[0] = 
 			&addVertex(bin_stl_triangle.vertices[0]);
-		triangles[newest_idx].vertices[1] = 
+		triangles[newest_idx]->vertices[1] = 
 			&addVertex(bin_stl_triangle.vertices[1]);
-		triangles[newest_idx].vertices[2] = 
+		triangles[newest_idx]->vertices[2] = 
 			&addVertex(bin_stl_triangle.vertices[2]);
 
 		// Start off assuming new triangle has no neighbors
-		triangles[newest_idx].neighbors[0] = NULL;
-		triangles[newest_idx].neighbors[1] = NULL;
-		triangles[newest_idx].neighbors[2] = NULL;
+		triangles[newest_idx]->neighbors[0] = NULL;
+		triangles[newest_idx]->neighbors[1] = NULL;
+		triangles[newest_idx]->neighbors[2] = NULL;
 
 		// Search for neighbors for newest triangle
 		for (uint32_t older_idx = 0; older_idx < newest_idx; 
 			older_idx++)
 		{
-			checkAdjacent(triangles[newest_idx], 
-				triangles[older_idx]);
+			checkAdjacent(*triangles[newest_idx], 
+				*triangles[older_idx]);
 		}
 	}
 
@@ -133,11 +133,14 @@ ModelConv::ModelConv(const char* filename)
 		exit(EXIT_FAILURE);
 	}
 
+
+int cnt = 0;
 	// Create faces now that we have graph representing all triangles
-	for (std::vector<Triangle>::iterator itr = triangles.begin();
+	for (std::vector<Triangle*>::iterator itr = triangles.begin();
 		itr != triangles.end(); itr++) 
 	{
-		Triangle* triangle = &(*itr);
+		Triangle* triangle = *itr;
+		Face* face = NULL;
 
 		// Skip constructing a face starting at this triangle, if it is
 		//  already in a face
@@ -147,12 +150,15 @@ ModelConv::ModelConv(const char* filename)
 		// Clear our traversal map for this face
 		tri_trav_map.clear();
 
-		face.normal = triangle->normal;
-		face.triangles.clear();
-		face.border.clear();
+		face = new Face();
+		face->normal = triangle->normal;
+		face->triangles.clear();
+		face->border.clear();
+
+printf("face %d\n\n", cnt++);
 
 		// BFS finding edges where triangles are not on same plane
-		buildFace(*triangle, face, tri_face_map, tri_trav_map);
+		buildFace(*triangle, *face, tri_face_map, tri_trav_map);
 
 		faces.push_back(face);
 	}
@@ -160,14 +166,14 @@ ModelConv::ModelConv(const char* filename)
 //TODO: debug
 	
 	int cntr = 0;
-	for (std::vector<Face>::iterator itr = faces.begin();
+	for (std::vector<Face*>::iterator itr = faces.begin();
 		itr != faces.end(); itr++)
 	{
 		std::string filename = "test";
 		filename.append(std::to_string(cntr++));
 		filename.append(".stl");
 
-		exportBinStl(filename.c_str(), itr->triangles);
+		exportBinStl(filename.c_str(), (*itr)->triangles);
 	}
 }
 
@@ -176,6 +182,17 @@ ModelConv::ModelConv(const char* filename)
  */
 ModelConv::~ModelConv()
 {
+	for (std::vector<Vertex*>::iterator itr = vertices.begin();
+		itr != vertices.end(); itr++)
+		delete(*itr);
+
+	for (std::vector<Triangle*>::iterator itr = triangles.begin();
+		itr != triangles.end(); itr++)
+		delete(*itr);
+	
+	for (std::vector<Face*>::iterator itr = faces.begin();
+		itr != faces.end(); itr++)
+		delete(*itr);
 }
 
 /**
@@ -221,13 +238,13 @@ void ModelConv::debugPrint()
 		vertices.size(), triangles.size());
 
 	uint32_t cnt = 0;
-	for (std::vector<Triangle>::iterator it = triangles.begin();
-		it != triangles.end(); it++) 
+	for (std::vector<Triangle*>::iterator itr = triangles.begin();
+		itr != triangles.end(); itr++) 
 	{
-		printf("Triangle %u (%p): %s\n", cnt++, (void*)&(*it), to_string(*it).c_str());
+		printf("Triangle %u (%p): %s\n", cnt++, (void*)*itr, to_string(**itr).c_str());
 		for (int n_cnt = 0; n_cnt < 3; n_cnt++)
 		{
-			printf("\tNeighbor %d = (%p)\n", n_cnt, (void*)it->neighbors[n_cnt]);
+			printf("\tNeighbor %d = (%p)\n", n_cnt, (void*)(*itr)->neighbors[n_cnt]);
 		}
 	}
 	printf("\n");
@@ -274,26 +291,30 @@ std::string ModelConv::to_string(const Triangle& triangle)
  */
 ModelConv::Vertex& ModelConv::addVertex(const Vertex& vertex)
 {
+	Vertex* new_vertex = NULL;
+
 //TODO: it would be more efficient to use a map here, so we don't iterate over everything we have each time we add
 //	need to define hash function for vertex in order to use map
 
 	// Search to see if vertex already exists in vector
-	for (std::vector<Vertex>::iterator itr = vertices.begin();
+	for (std::vector<Vertex*>::iterator itr = vertices.begin();
 		itr != vertices.end(); itr++)
 	{
 		// Compare vertex 
-		if (vertex == *itr)
+		if (vertex == **itr)
 		{
-			return *itr;
+			return **itr;
 		}
 	}
 
+	new_vertex = new Vertex(vertex);
+
 	// If we made it out of the loop without exiting the function we did
 	//  did not find the vertex in the vector already and need to add it
-	vertices.push_back(vertex);
+	vertices.push_back(new_vertex);
 
 	// Return pointer to newly added element
-	return vertices.back();
+	return *new_vertex;
 }
 
 /**
@@ -418,7 +439,7 @@ void ModelConv::buildFace(const Triangle& tri, Face& face,
 {
 	// Make sure we have no already added this face
 	if (faceMap[&tri])
-		return;;
+		return;
 
 	faceMap[&tri] = 1;
 	travMap[&tri] = 1;	
@@ -437,10 +458,24 @@ void ModelConv::buildFace(const Triangle& tri, Face& face,
 		// Make sure we have not already visited this triangle for this
 		//  face construction
 		if (travMap[neighbor])
+		{
 			continue;
+		}
+
+
+/*
+printf("tri norm %s\n", to_string(tri.normal).c_str());
+printf("nei norm %s\n", to_string(neighbor->normal).c_str());
+printf("%d %d %d\n", tri.normal.i == neighbor->normal.i, tri.normal.j == neighbor->normal.j, tri.normal.k == neighbor->normal.k);
+printf("0x%x 0x%x\n", *(int*)(&tri.normal.i), *(int*)(&neighbor->normal.i));
+printf("0x%x 0x%x\n", *(int*)(&tri.normal.j), *(int*)(&neighbor->normal.j));
+printf("0x%x 0x%x\n", *(int*)(&tri.normal.k), *(int*)(&neighbor->normal.k));
+*/
+
 	
 		if (tri.normal == neighbor->normal)
 		{
+printf("MATCH\n");
 			// Neighbor is face of this face
 			buildFace(*neighbor, face, faceMap, travMap);
 		}
